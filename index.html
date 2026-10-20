@@ -128,8 +128,16 @@ const fDebt=()=>{if(needAcc())return;form('Hutang / Piutang Baru',[{k:'kind',l:'
  {k:'account_id',l:'Catat ke rekening',o:[['','Tidak dicatat ke rekening'],...accOpts()]},{k:'note',l:'Catatan',r:false}],
  async d=>{const {account_id,...r}=d;const debt=await ins('debts',r);
   if(account_id)await ins('transactions',{account_id,debt_id:debt.id,kind:'debt',type:d.kind=='hutang'?'income':'expense',amount:d.amount,date:d.date,note:(d.kind=='hutang'?'Hutang dari ':'Pinjamkan ke ')+d.person})})};
-const fPay=id=>{const d=S.d.find(x=>x.id==id);form(`${d.kind=='hutang'?'Bayar hutang ke':'Terima pembayaran dari'} ${esc(d.person)}`,[{k:'account_id',l:'Rekening',o:accOpts()},{k:'amount',l:`Nominal (sisa ${rp(d.amount-paid(d))})`,t:'number',v:d.amount-paid(d)},{k:'date',l:'Tanggal',t:'date',v:today()}],
- d2=>ins('transactions',{...d2,debt_id:id,kind:'payment',type:d.kind=='hutang'?'expense':'income',note:(d.kind=='hutang'?'Bayar hutang ke ':'Piutang dari ')+d.person}))};
+const fPay=id=>{const d=S.d.find(x=>x.id==id),sisa=d.amount-paid(d),h=d.kind=='hutang';
+ form(`${h?'Bayar hutang ke':'Terima pembayaran dari'} ${esc(d.person)}`,[{k:'account_id',l:h?'Dibayar dari rekening':'Masuk ke rekening',o:accOpts()},{k:'amount',l:h?'Jumlah bayar (Rp)':'Jumlah diterima (Rp)',t:'number'},{k:'date',l:'Tanggal',t:'date',v:today()}],
+ async x=>{const a=Number(x.amount);if(!(a>0))throw new Error('Nominal harus lebih dari 0');if(a>sisa)throw new Error('Melebihi sisa '+rp(sisa));
+  await ins('transactions',{...x,debt_id:id,kind:'payment',type:h?'expense':'income',note:(h?'Bayar hutang ke ':'Piutang dari ')+d.person})});
+ const fm=$('#modal form'),am=fm.elements.amount,line=(a,b,c='')=>`<div style="display:flex;justify-content:space-between;padding:2px 0"><span class=mu>${a}</span><b class="${c}">${b}</b></div>`;
+ fm.querySelector('h3').insertAdjacentHTML('afterend',`<div style="background:var(--bg);border-radius:14px;padding:12px 14px;margin-bottom:14px">${line('Total',rp(d.amount))}${line('Sudah dibayar',rp(d.amount-sisa))}${line('Sisa '+(h?'hutang':'piutang'),rp(sisa),h?'ex':'in')}</div>`);
+ am.insertAdjacentHTML('afterend','<div id=pv style="margin-top:8px;font-size:13px"></div>');
+ const pv=()=>{const r=sisa-(Number(am.value)||0);$('#pv').innerHTML=(r<0?'<span class=ex>Melebihi sisa</span>':`Sisa setelah ${h?'bayar':'diterima'}: <b>${rp(r)}</b>${r==0?' · Lunas ✓':''}`)+` <a href=# id=full style="color:var(--pr);margin-left:6px">Penuh</a>`;
+  $('#full').onclick=e=>{e.preventDefault();am.value=sisa;pv()}};
+ am.max=sisa;am.oninput=pv;pv()};
 
 /* ---------- VIEWS ---------- */
 const nav=[['dash','Dashboard'],['tx','Transaksi'],['debt','Hutang Piutang'],['acc','Rekening'],['cat','Kategori']];
@@ -160,7 +168,7 @@ function render(){
   body=`<div class=grid>${[['income','Pemasukan','in'],['expense','Pengeluaran','ex']].map(([ty,l,cl])=>`<div class=card><h3 class=${cl}>${l}</h3><table>${S.c.filter(c=>c.type==ty).map(c=>`<tr><td>${esc(c.name)}${ty=='expense'?budCell(c):''}</td><td style="white-space:nowrap">${ty=='expense'?`<button class=x onclick="fBudget(S.c.find(x=>x.id=='${c.id}'))">Budget</button>`:''}<button class=x onclick="fCat(S.c.find(x=>x.id=='${c.id}'))">Edit</button><button class=x onclick="del('categories','${c.id}')">✕</button></td></tr>`).join('')}</table></div>`).join('')}</div>`}
  if(view=='debt'){act=`<button class=btn onclick=fDebt()>+ Hutang / Piutang</button>`;
   body=`<div class=grid>${S.d.map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class=pill>${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
-  <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class=v>${rp(r)}</div><div class=mu>dari ${rp(d.amount)}</div>
+  <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class=v>${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
   <div class=bar><i style="width:${p/d.amount*100}%"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
  $('#root').innerHTML=`<div class=app><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';render()">${n[1]}</a>`).join('')}<div class=sp></div><a onclick="sb.auth.signOut()">Keluar</a></aside>
  <main><div class=top><h1>${title[view]}</h1><div class=row>${view=='dash'||view=='tx'?`<input type=month value="${month}" onchange="month=this.value||month;render()" style="width:auto;margin:0">`:''}${act}</div></div>${body}</main></div>`;
