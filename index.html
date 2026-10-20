@@ -38,7 +38,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:12px 8px;text-align:left
 @media(max-width:800px){.app{grid-template-columns:1fr}aside{position:fixed;bottom:0;left:0;right:0;top:auto;height:auto;flex-direction:row;justify-content:space-around;padding:8px;background:var(--card);box-shadow:0 -8px 30px rgba(15,23,42,.08);z-index:5;border-radius:22px 22px 0 0;gap:0}
 .logo,.sp{display:none}aside a{padding:9px 8px;font-size:11px;text-align:center;border-radius:12px}main{padding:20px 16px 100px}.two{grid-template-columns:1fr}h1{font-size:22px}}
 .al{display:flex;gap:10px;align-items:center;margin-bottom:12px;padding:14px 18px;border-radius:16px;background:#fff4e0;color:#b45309;font-weight:600}.al.over{background:var(--exs);color:var(--ex)}
-.fl{display:grid;gap:12px;grid-template-columns:2fr 1fr 1fr;margin-bottom:16px}.fl input,.fl select{margin:0;background:var(--card)}
+.fl{display:grid;gap:12px;grid-template-columns:2fr 1fr 1fr 1fr;margin-bottom:16px}.fl input,.fl select{margin:0;background:var(--card)}
 @media(max-width:800px){.fl{grid-template-columns:1fr}}
 .pill.h{background:var(--exs);color:var(--ex)}.pill.p{background:var(--ins);color:var(--in)}
 </style></head><body>
@@ -50,7 +50,7 @@ const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLoc
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nn=v=>v===''||v==null?null:v, today=()=>new Date().toISOString().slice(0,10);
 const sum=a=>a.reduce((s,x)=>s+Number(x.amount),0), cats=['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#84cc16'];
-let S={a:[],c:[],t:[],d:[],b:[]},F={q:'',acc:'',type:''}, view='dash', month=today().slice(0,7), charts=[];
+let S={a:[],c:[],t:[],d:[],b:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
 const closeM=()=>$('#modal').classList.remove('on');
 
@@ -71,7 +71,8 @@ addEventListener('unhandledrejection',e=>{console.error(e.reason);toast(e.reason
 
 /* ---------- DATA ---------- */
 async function load(){
- const q=(t,o)=>sb.from(t).select('*').order(o,{ascending:t!='transactions'&&t!='debts'});
+ const all=async(t,o,asc)=>{let r=[],i=0;for(;;){const {data,error}=await sb.from(t).select('*').order(o,{ascending:asc}).order('id').range(i,i+999);if(error)return{error};r=r.concat(data);if(data.length<1000)break;i+=1000}return{data:r}};
+ const q=(t,o)=>all(t,o,t!='transactions'&&t!='debts');
  const [a,c,t,d,b]=await Promise.all([q('accounts','created_at'),q('categories','name'),q('transactions','date'),q('debts','date'),q('budgets','created_at')]);
  const err=[a,c,t,d,b].find(r=>r.error); if(err)toast(err.error.message);
  S={a:a.data||[],c:c.data||[],t:t.data||[],d:d.data||[],b:b.data||[]}; try{render()}catch(e){console.error(e);toast('Gagal menampilkan: '+e.message)}
@@ -85,8 +86,17 @@ const bud=cid=>S.b.find(b=>b.category_id==cid);
 const alerts=()=>S.b.map(b=>({c:cat(b.category_id),b,s:spent(b.category_id),p:spent(b.category_id)/b.amount})).filter(x=>x.c&&x.p>=.8).sort((a,b)=>b.p-a.p);
 const budCell=c=>{const b=bud(c.id);if(!b)return '<div class=mu style="font-size:12px">Belum ada budget</div>';const s=spent(c.id),p=s/b.amount;
  return `<div class=mu style="font-size:12px">${rp(s)} / ${rp(b.amount)} bulan ini</div><div class=bar style="margin-top:6px"><i style="width:${Math.min(100,p*100)}%;${p>=1?'background:var(--ex)':p>=.8?'background:#f59e0b':''}"></i></div>`};
-const fl=()=>mt().filter(t=>(!F.acc||t.account_id==F.acc)&&(!F.type||t.type==F.type)&&(!F.q||[t.note,cat(t.category_id)?.name,acc(t.account_id)?.name].join(' ').toLowerCase().includes(F.q.toLowerCase())));
-const txTable=()=>`<table>${txRows(fl())}</table>`;
+const fl=()=>(F.all?S.t:mt()).filter(t=>(!F.cat||(F.cat=='_'?!t.category_id&&t.kind=='normal':t.category_id==F.cat))&&(!F.acc||t.account_id==F.acc)&&(!F.type||t.type==F.type)&&(!F.q||[t.note,cat(t.category_id)?.name,acc(t.account_id)?.name].join(' ').toLowerCase().includes(F.q.toLowerCase())));
+const PS=20;
+const txTable=()=>{const l=fl(),n=l.length,pg=F.p=Math.min(F.p,Math.max(0,Math.ceil(n/PS)-1));
+ return `<table>${txRows(l.slice(pg*PS,pg*PS+PS))}</table>`+(n>PS?`<div class=row style="justify-content:space-between;margin-top:14px"><span class=mu>${pg*PS+1}–${Math.min(n,pg*PS+PS)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="F.p--;$('#txl').innerHTML=txTable()">‹ Prev</button> <button class=ghost ${(pg+1)*PS<n?'':'disabled'} onclick="F.p++;$('#txl').innerHTML=txTable()">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} transaksi</div>`)};
+const dl=()=>S.d.filter(d=>(!D.q||(d.person+' '+(d.note||'')).toLowerCase().includes(D.q.toLowerCase()))&&(D.s=='all'||(D.s=='aktif')==(d.amount-paid(d)>0)));
+const brk=(N,ty)=>{const by={};N.filter(t=>t.type==ty).forEach(t=>{const k=t.category_id||'_';by[k]=by[k]||{s:0,n:0};by[k].s+=Number(t.amount);by[k].n++});
+ const tot=Object.values(by).reduce((a,b)=>a+b.s,0),cl=ty=='income'?'var(--in)':'var(--ex)';
+ const rows=Object.entries(by).sort((a,b)=>b[1].s-a[1].s).map(([k,v])=>{const c=cat(k),b=ty=='expense'&&c&&bud(k);
+  return `<div style="padding:10px 0;cursor:pointer" onclick="F.cat='${k}';F.q=F.acc=F.type='';F.p=0;F.all=0;view='tx';render()"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(c?.name||'Tanpa kategori')} <span class=mu style="font-weight:500">· ${v.n}x</span></b><b>${rp(v.s)}</b></div>
+  <div class=bar style="margin-top:6px"><i style="width:${v.s/tot*100}%;background:${cl}"></i></div><div class=mu style="font-size:12px;margin-top:4px">${Math.round(v.s/tot*100)}% dari total${b?` · budget terpakai ${Math.round(v.s/b.amount*100)}%`:''}</div></div>`}).join('');
+ return `<div class=card><h3>${ty=='income'?'Pemasukan':'Pengeluaran'} per kategori <span class=mu style="font-weight:500">· ${rp(tot)}</span></h3>${rows||'<p class=mu>Belum ada data bulan ini.</p>'}</div>`};
 const exportCsv=()=>{const rows=[['Tanggal','Jenis','Rekening','Kategori','Nominal','Catatan'],...fl().map(t=>[t.date,t.type=='income'?'Pemasukan':'Pengeluaran',acc(t.account_id)?.name,cat(t.category_id)?.name||'',t.amount,t.note||''])];
  const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`mutasi-${month}.csv`;a.click()};
@@ -156,19 +166,19 @@ function render(){
   <div class=card><div class=k>Pemasukan bulan ini</div><div class="v in">${rp(inc)}</div></div><div class=card><div class=k>Pengeluaran bulan ini</div><div class="v ex">${rp(exp)}</div></div>
   <div class=card><div class=k>Hutang · Piutang</div><div class=v style="font-size:17px"><span class=ex>${rp(hut)}</span> · <span class=in>${rp(pi)}</span></div></div></div>
   <div class=two><div class=card><h3>Pengeluaran per kategori</h3><canvas id=c1 height=220></canvas></div><div class=card><h3>6 bulan terakhir</h3><canvas id=c2 height=220></canvas></div></div>
-  <div class=card style="margin-top:16px"><h3>Mutasi terbaru</h3><table>${txRows(S.t.slice(0,6))}</table></div>`;
+  <div class=grid style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin:16px 0">${brk(N,'expense')}${brk(N,'income')}</div><div class=card><h3>Mutasi terbaru</h3><table>${txRows(S.t.slice(0,6))}</table></div>`;
  }
  if(view=='tx'){act=`<button class=ghost onclick=fTransfer()>⇄ Transfer</button><button class=ghost onclick=exportCsv()>⬇ CSV</button><button class=btn onclick=fTx()>+ Transaksi</button>`;
-  const re="$('#txl').innerHTML=txTable()";
-  body=`<div class=fl><input placeholder="Cari catatan, kategori, rekening…" value="${esc(F.q)}" oninput="F.q=this.value;${re}"><select onchange="F.acc=this.value;${re}"><option value="">Semua rekening</option>${S.a.map(a=>`<option value="${a.id}" ${F.acc==a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
-  <select onchange="F.type=this.value;${re}"><option value="">Semua jenis</option><option value=income ${F.type=='income'?'selected':''}>Pemasukan</option><option value=expense ${F.type=='expense'?'selected':''}>Pengeluaran</option></select></div><div class=card id=txl>${txTable()}</div>`}
+  const re="F.p=0;$('#txl').innerHTML=txTable()";
+  body=(F.cat?`<div class=al style="background:var(--prs);color:var(--pr)">Kategori: ${esc(F.cat=='_'?'Tanpa kategori':cat(F.cat)?.name||'')} <button class=x onclick="F.cat='';render()">✕ hapus filter</button></div>`:'')+`<div class=fl><input placeholder="Cari catatan, kategori, rekening…" value="${esc(F.q)}" oninput="F.q=this.value;${re}"><select onchange="F.acc=this.value;${re}"><option value="">Semua rekening</option>${S.a.map(a=>`<option value="${a.id}" ${F.acc==a.id?'selected':''}>${esc(a.name)}</option>`).join('')}</select>
+  <select onchange="F.type=this.value;${re}"><option value="">Semua jenis</option><option value=income ${F.type=='income'?'selected':''}>Pemasukan</option><option value=expense ${F.type=='expense'?'selected':''}>Pengeluaran</option></select><select onchange="F.all=+this.value;${re}"><option value=0>Bulan terpilih</option><option value=1 ${F.all?'selected':''}>Semua waktu</option></select></div><div class=card id=txl>${txTable()}</div>`}
  if(view=='acc'){act=`<button class=btn onclick=fAcc()>+ Rekening</button>`;
   body=`<div class=grid>${S.a.map(a=>`<div class=card><div class=row style="justify-content:space-between"><b>${esc(a.name)}</b><span><button class=x onclick="fAcc(S.a.find(x=>x.id=='${a.id}'))">Edit</button><button class=x onclick="del('accounts','${a.id}')">✕</button></span></div>
   <div class=mu>${esc(a.bank||'')} ${esc(a.number||'')}</div><div class=v>${rp(bal(a))}</div></div>`).join('')||'<p class=mu>Belum ada rekening.</p>'}</div>`}
  if(view=='cat'){act=`<button class=btn onclick=fCat()>+ Kategori</button>`;
   body=`<div class=grid>${[['income','Pemasukan','in'],['expense','Pengeluaran','ex']].map(([ty,l,cl])=>`<div class=card><h3 class=${cl}>${l}</h3><table>${S.c.filter(c=>c.type==ty).map(c=>`<tr><td>${esc(c.name)}${ty=='expense'?budCell(c):''}</td><td style="white-space:nowrap">${ty=='expense'?`<button class=x onclick="fBudget(S.c.find(x=>x.id=='${c.id}'))">Budget</button>`:''}<button class=x onclick="fCat(S.c.find(x=>x.id=='${c.id}'))">Edit</button><button class=x onclick="del('categories','${c.id}')">✕</button></td></tr>`).join('')}</table></div>`).join('')}</div>`}
  if(view=='debt'){act=`<button class=btn onclick=fDebt()>+ Hutang / Piutang</button>`;
-  body=`<div class=grid>${S.d.map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
+  body=`<div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / catatan…" value="${esc(D.q)}" onchange="D.q=this.value;render()"><select onchange="D.s=this.value;render()"><option value=aktif ${D.s=='aktif'?'selected':''}>Belum lunas</option><option value=lunas ${D.s=='lunas'?'selected':''}>Lunas</option><option value=all ${D.s=='all'?'selected':''}>Semua</option></select></div><div class=grid>${dl().map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
   <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class="v ${d.kind=='hutang'?'ex':'in'}">${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
   <div class=bar><i style="width:${p/d.amount*100}%;background:${d.kind=='hutang'?'var(--ex)':'var(--in)'}"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
  $('#root').innerHTML=`<div class=app><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';render()">${n[1]}</a>`).join('')}<div class=sp></div><a onclick="sb.auth.signOut()">Keluar</a></aside>
