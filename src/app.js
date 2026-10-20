@@ -4,7 +4,7 @@ const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLoc
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nn=v=>v===''||v==null?null:v, today=()=>new Date().toISOString().slice(0,10);
 const sum=a=>a.reduce((s,x)=>s+Number(x.amount),0), cats=['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#84cc16'];
-let S={a:[],c:[],t:[],d:[],b:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
+let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
 const closeM=()=>$('#modal').classList.remove('on');
 
@@ -20,7 +20,8 @@ function authView(){
   if(error)return toast(error.message); if(reg&&!data.session)toast('Cek email untuk konfirmasi.')}
 }
 let uid=null;
-sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>{if(!s){uid=null;authView();return}if(s.user.id!==uid){uid=s.user.id;load()}},0));
+sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>{if(!s){uid=null;authView();return}U=s.user;if(s.user.id!==uid){uid=s.user.id;load()}},0));
+addEventListener('click',e=>{if(!e.target.closest('.prof'))document.querySelectorAll('.menu.on').forEach(m=>m.classList.remove('on'))});
 addEventListener('unhandledrejection',e=>{console.error(e.reason);toast(e.reason?.message||'Terjadi kesalahan')});
 
 /* ---------- DATA ---------- */
@@ -105,6 +106,13 @@ const fPay=id=>{const d=S.d.find(x=>x.id==id),sisa=d.amount-paid(d),h=d.kind=='h
  am.max=sisa;am.oninput=pv;pv()};
 
 /* ---------- VIEWS ---------- */
+const togSB=()=>{SB=!SB;render()};
+const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user_metadata?.full_name,r:false},{k:'password',l:'Password baru (kosongkan jika tidak diubah)',t:'password',r:false}],
+ async d=>{if(d.password&&d.password.length<6)throw new Error('Password minimal 6 karakter');const p={data:{full_name:d.full_name.trim()}};if(d.password)p.password=d.password;
+  const {data,error}=await sb.auth.updateUser(p);if(error)throw error;U=data.user});
+const hd=()=>{const nm=U?.user_metadata?.full_name||'',em=U?.email||'',ini=(nm||em)[0]?.toUpperCase()||'?';
+ return `<header class=hd><button class=ib onclick="togSB()" aria-label="Menu">☰</button><div class=sp></div><div class=prof><button class=pb onclick="this.nextElementSibling.classList.toggle('on')"><span class=av>${esc(ini)}</span><span class=pn>${esc(nm||em)}</span><span class=mu>▾</span></button>
+ <div class=menu><div class=mh><b>${esc(nm||'Pengguna')}</b><div class=mu style="font-size:12px;word-break:break-all">${esc(em)}</div></div><button onclick="fProfile()">✎ Edit profil</button><button class=lo onclick="sb.auth.signOut()">⎋ Keluar</button></div></div></header>`};
 const nav=[['dash','Dashboard'],['tx','Transaksi'],['debt','Hutang Piutang'],['acc','Rekening'],['cat','Kategori']];
 const title={dash:'Dashboard',tx:'Mutasi Transaksi',debt:'Hutang Piutang',acc:'Rekening',cat:'Kategori'};
 const mt=()=>S.t.filter(t=>t.date.startsWith(month));
@@ -135,8 +143,7 @@ function render(){
   body=`<div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / catatan…" value="${esc(D.q)}" onchange="D.q=this.value;render()"><select onchange="D.s=this.value;render()"><option value=aktif ${D.s=='aktif'?'selected':''}>Belum lunas</option><option value=lunas ${D.s=='lunas'?'selected':''}>Lunas</option><option value=all ${D.s=='all'?'selected':''}>Semua</option></select></div><div class=grid>${dl().map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
   <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class="v ${d.kind=='hutang'?'ex':'in'}">${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
   <div class=bar><i style="width:${p/d.amount*100}%;background:${d.kind=='hutang'?'var(--ex)':'var(--in)'}"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
- $('#root').innerHTML=`<div class=app><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';render()">${n[1]}</a>`).join('')}<div class=sp></div><a onclick="sb.auth.signOut()">Keluar</a></aside>
- <main><div class=top><h1>${title[view]}</h1><div class=row>${view=='dash'||view=='tx'?`<input type=month value="${month}" onchange="month=this.value||month;render()" style="width:auto;margin:0">`:''}${act}</div></div>${body}</main></div>`;
+ $('#root').innerHTML=`<div class="app ${SB?'open':'collapsed'}"><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';if(innerWidth<=800)SB=false;render()">${n[1]}</a>`).join('')}</aside><div class=ov onclick="togSB()"></div><div class=shell>${hd()}<main><div class=top><h1>${title[view]}</h1><div class=row>${view=='dash'||view=='tx'?`<input type=month value="${month}" onchange="month=this.value||month;render()" style="width:auto;margin:0">`:''}${act}</div></div>${body}</main></div></div>`;
  if(view=='dash')drawCharts(N);
 }
 function drawCharts(N){
