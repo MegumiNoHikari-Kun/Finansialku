@@ -1,4 +1,5 @@
 /* __SB_URL__ / __SB_KEY__ diisi saat build dari environment variable Vercel */
+let REC=/type=recovery/.test(location.hash); // dibaca sebelum Supabase menghapus hash URL
 const sb=supabase.createClient(__SB_URL__,__SB_KEY__);
 const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLocaleString('id-ID');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -9,49 +10,30 @@ const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setT
 const closeM=()=>$('#modal').classList.remove('on');
 
 /* ---------- AUTH ---------- */
-function authView(){
- $('#root').innerHTML=`<div id=auth><div class=logo style="font-size:26px">Fin<i>Track</i></div><p class=mu>Catatan keuangan pribadi yang rapi.</p>
- <form class=card id=af><label>Email<input name=email type=email required autocomplete=email></label><label>Password<input name=password type=password minlength=6 required autocomplete=current-password></label>
- <button class=btn style="width:100%">Masuk</button>
- <p class=mu style="text-align:center;margin:14px 0 0"><a href=# id=forgot style="color:var(--pr)">Lupa password?</a></p>
- <p class=mu style="text-align:center;margin:10px 0 0">Belum punya akun? <a href=# id=sw style="color:var(--pr)">Daftar</a></p></form></div>`;
- let reg=false;
- $('#sw').onclick=e=>{e.preventDefault();reg=!reg;$('#af .btn').textContent=reg?'Daftar':'Masuk';$('#sw').textContent=reg?'Masuk':'Daftar';$('#forgot').parentElement.style.display=reg?'none':'';$('#af').elements.password.autocomplete=reg?'new-password':'current-password'};
- $('#forgot').onclick=e=>{e.preventDefault();authForgotView()};
- $('#af').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));
-  const {error,data}=reg?await sb.auth.signUp(d):await sb.auth.signInWithPassword(d);
-  if(error)return toast(error.message); if(reg&&!data.session)toast('Cek email untuk konfirmasi.')}
+function authView(mode='in'){
+ const t={in:['Masuk','Belum punya akun? ','Daftar','up'],up:['Daftar','Sudah punya akun? ','Masuk','in'],fp:['Kirim link reset','Ingat password? ','Masuk','in']}[mode];
+ $('#root').innerHTML=`<div id=auth><div class=logo style="font-size:26px">Fin<i>Track</i></div><p class=mu>${mode=='fp'?'Masukkan email, kami kirim link untuk membuat password baru.':'Catatan keuangan pribadi yang rapi.'}</p>
+ <form class=card id=af><label>Email<input name=email type=email required></label>${mode=='fp'?'':'<label>Password<input name=password type=password minlength=6 required></label>'}
+ ${mode=='in'?'<div style="text-align:right;margin:-6px 0 14px"><a href=# id=fp style="color:var(--pr);font-size:12px;font-weight:600">Lupa password?</a></div>':''}
+ <button class=btn style="width:100%">${t[0]}</button><p class=mu style="text-align:center;margin:14px 0 0">${t[1]}<a href=# id=sw style="color:var(--pr)">${t[2]}</a></p></form></div>`;
+ $('#sw').onclick=e=>{e.preventDefault();authView(t[3])};
+ if($('#fp'))$('#fp').onclick=e=>{e.preventDefault();authView('fp')};
+ $('#af').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target)),b=e.submitter;if(b)b.disabled=true;
+  try{if(mode=='fp'){const {error}=await sb.auth.resetPasswordForEmail(d.email,{redirectTo:location.origin});if(error)throw error;toast('Jika email terdaftar, link reset sudah dikirim.');authView('in');return}
+   const {error,data}=mode=='up'?await sb.auth.signUp(d):await sb.auth.signInWithPassword(d);if(error)throw error;if(mode=='up'&&!data.session)toast('Cek email untuk konfirmasi.')}
+  catch(x){toast(x.message)}if(b)b.disabled=false}
 }
-
-function authForgotView(){
- $('#root').innerHTML=`<div id=auth><div class=logo style="font-size:26px">Fin<i>Track</i></div><p class=mu>Reset password akun FinTrack.</p>
- <form class=card id=rf><label>Email terdaftar<input name=email type=email required autocomplete=email></label>
- <button class=btn style="width:100%">Kirim link reset password</button>
- <p class=mu style="text-align:center;margin:14px 0 0"><a href=# id=backlogin style="color:var(--pr)">Kembali ke login</a></p></form></div>`;
- $('#backlogin').onclick=e=>{e.preventDefault();authView()};
- $('#rf').onsubmit=async e=>{e.preventDefault();const email=new FormData(e.target).get('email');
-  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
-  if(error)return toast(error.message);
-  toast('Jika email terdaftar, link reset password akan dikirim.');e.target.reset()};
-}
-
-function authResetView(){
+function recView(){
  $('#root').innerHTML=`<div id=auth><div class=logo style="font-size:26px">Fin<i>Track</i></div><p class=mu>Buat password baru untuk akunmu.</p>
- <form class=card id=pf><label>Password baru<input name=password type=password minlength=6 required autocomplete=new-password></label>
- <label>Ulangi password baru<input name=confirm type=password minlength=6 required autocomplete=new-password></label>
- <button class=btn style="width:100%">Simpan password baru</button></form></div>`;
- $('#pf').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));
-  if(d.password!==d.confirm)return toast('Konfirmasi password tidak cocok.');
-  const {error}=await sb.auth.updateUser({password:d.password});
-  if(error)return toast(error.message);
-  toast('Password berhasil diperbarui.');history.replaceState({},document.title,location.pathname);await sb.auth.getSession()};
+ <form class=card id=rf><label>Password baru<input name=p1 type=password minlength=6 required></label><label>Ulangi password<input name=p2 type=password minlength=6 required></label><button class=btn style="width:100%">Simpan password</button></form></div>`;
+ $('#rf').onsubmit=async e=>{e.preventDefault();const {p1,p2}=Object.fromEntries(new FormData(e.target));if(p1!==p2)return toast('Password tidak sama');
+  const {error}=await sb.auth.updateUser({password:p1});if(error)return toast(error.message);
+  REC=false;history.replaceState(null,'',location.pathname);toast('Password diperbarui ✓');uid=U.id;load()}
 }
-
 let uid=null;
-sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>{if(ev==='PASSWORD_RECOVERY'){authResetView();return}if(!s){uid=null;U=null;authView();return}U=s.user;if(s.user.id!==uid){uid=s.user.id;load()}},0));
+sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>{if(ev=='PASSWORD_RECOVERY')REC=true;if(!s){uid=null;authView();return}U=s.user;if(REC){recView();return}if(s.user.id!==uid){uid=s.user.id;load()}},0));
 addEventListener('click',e=>{if(!e.target.closest('.prof'))document.querySelectorAll('.menu.on').forEach(m=>m.classList.remove('on'))});
 addEventListener('unhandledrejection',e=>{console.error(e.reason);toast(e.reason?.message||'Terjadi kesalahan')});
-
 
 /* ---------- DATA ---------- */
 async function load(){
@@ -198,6 +180,16 @@ function fImport(){
   try{t=new TextDecoder('utf-8',{fatal:true}).decode(buf)}catch{t=new TextDecoder('windows-1252').decode(buf)}
   const rows=parseCsv(t);P=rows.length<2?{fatal:'File kosong atau hanya berisi header.'}:rows.length>5001?{fatal:'Maksimal 5.000 baris per file.'}:analyze(rows);show()}}
 
+const fDebtEdit=d=>{const h=d.kind=='hutang',pr=S.t.find(t=>t.debt_id==d.id&&t.kind=='debt'),p=paid(d);
+ form(`Edit ${h?'Hutang':'Piutang'}`,[{k:'person',l:'Nama orang',v:d.person},{k:'amount',l:`Nominal (sudah dibayar ${rp(p)})`,t:'number',v:d.amount},{k:'date',l:'Tanggal',t:'date',v:d.date},
+  {k:'account_id',l:'Dicatat di rekening',o:[['','Tidak dicatat ke rekening'],...accOpts()],v:pr?.account_id},{k:'note',l:'Catatan',r:false,v:d.note}],
+ async x=>{const a=Number(x.amount);if(!(a>0))throw new Error('Nominal harus lebih dari 0');if(a<p)throw new Error('Nominal tidak boleh kurang dari yang sudah dibayar ('+rp(p)+')');
+  await upd('debts',d.id,{person:x.person,amount:a,date:x.date,note:nn(x.note)});
+  const nt=(h?'Hutang dari ':'Pinjamkan ke ')+x.person;
+  if(pr&&x.account_id)await upd('transactions',pr.id,{account_id:x.account_id,amount:a,date:x.date,note:nt});
+  else if(pr){const {error}=await sb.from('transactions').delete().eq('id',pr.id);if(error)throw error}
+  else if(x.account_id)await ins('transactions',{account_id:x.account_id,debt_id:d.id,kind:'debt',type:h?'income':'expense',amount:a,date:x.date,note:nt});
+  if(x.person!=d.person){const {error}=await sb.from('transactions').update({note:(h?'Bayar hutang ke ':'Piutang dari ')+x.person}).eq('debt_id',d.id).eq('kind','payment');if(error)throw error}})};
 const togSB=()=>{SB=!SB;render()};
 const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user_metadata?.full_name,r:false},{k:'password',l:'Password baru (kosongkan jika tidak diubah)',t:'password',r:false}],
  async d=>{if(d.password&&d.password.length<6)throw new Error('Password minimal 6 karakter');const p={data:{full_name:d.full_name.trim()}};if(d.password)p.password=d.password;
@@ -232,7 +224,7 @@ function render(){
  if(view=='cat'){act=`<button class=btn onclick=fCat()>+ Kategori</button>`;
   body=`<div class=grid>${[['income','Pemasukan','in'],['expense','Pengeluaran','ex']].map(([ty,l,cl])=>`<div class=card><h3 class=${cl}>${l}</h3><table>${S.c.filter(c=>c.type==ty).map(c=>`<tr><td>${esc(c.name)}${ty=='expense'?budCell(c):''}</td><td style="white-space:nowrap">${ty=='expense'?`<button class=x onclick="fBudget(S.c.find(x=>x.id=='${c.id}'))">Budget</button>`:''}<button class=x onclick="fCat(S.c.find(x=>x.id=='${c.id}'))">Edit</button><button class=x onclick="del('categories','${c.id}')">✕</button></td></tr>`).join('')}</table></div>`).join('')}</div>`}
  if(view=='debt'){act=`<button class=btn onclick=fDebt()>+ Hutang / Piutang</button>`;
-  body=`<div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / catatan…" value="${esc(D.q)}" onchange="D.q=this.value;render()"><select onchange="D.s=this.value;render()"><option value=aktif ${D.s=='aktif'?'selected':''}>Belum lunas</option><option value=lunas ${D.s=='lunas'?'selected':''}>Lunas</option><option value=all ${D.s=='all'?'selected':''}>Semua</option></select></div><div class=grid>${dl().map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
+  body=`<div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / catatan…" value="${esc(D.q)}" onchange="D.q=this.value;render()"><select onchange="D.s=this.value;render()"><option value=aktif ${D.s=='aktif'?'selected':''}>Belum lunas</option><option value=lunas ${D.s=='lunas'?'selected':''}>Lunas</option><option value=all ${D.s=='all'?'selected':''}>Semua</option></select></div><div class=grid>${dl().map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><span><button class=x onclick="fDebtEdit(S.d.find(x=>x.id=='${d.id}'))">Edit</button><button class=x onclick="del('debts','${d.id}')">✕</button></span></div>
   <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class="v ${d.kind=='hutang'?'ex':'in'}">${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
   <div class=bar><i style="width:${p/d.amount*100}%;background:${d.kind=='hutang'?'var(--ex)':'var(--in)'}"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
  $('#root').innerHTML=`<div class="app ${SB?'open':'collapsed'}"><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';if(innerWidth<=800)SB=false;render()">${n[1]}</a>`).join('')}</aside><div class=ov onclick="togSB()"></div><div class=shell>${hd()}<main><div class=top><h1>${title[view]}</h1><div class=row>${view=='dash'||view=='tx'?`<input type=month value="${month}" onchange="month=this.value||month;render()" style="width:auto;margin:0">`:''}${act}</div></div>${body}</main></div></div>`;
