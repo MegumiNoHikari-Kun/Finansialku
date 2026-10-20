@@ -40,6 +40,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:12px 8px;text-align:left
 .al{display:flex;gap:10px;align-items:center;margin-bottom:12px;padding:14px 18px;border-radius:16px;background:#fff4e0;color:#b45309;font-weight:600}.al.over{background:var(--exs);color:var(--ex)}
 .fl{display:grid;gap:12px;grid-template-columns:2fr 1fr 1fr;margin-bottom:16px}.fl input,.fl select{margin:0;background:var(--card)}
 @media(max-width:800px){.fl{grid-template-columns:1fr}}
+.pill.h{background:var(--exs);color:var(--ex)}.pill.p{background:var(--ins);color:var(--in)}
 </style></head><body>
 <div id="root"><p style="text-align:center;margin-top:30vh;color:#7b8799;font:14px system-ui">Memuat…</p></div><div id="modal"></div><div id="toast"></div>
 <script>
@@ -127,7 +128,7 @@ const fBudget=c=>{const b=bud(c.id);form('Budget bulanan: '+esc(c.name),[{k:'amo
 const fDebt=()=>{if(needAcc())return;form('Hutang / Piutang Baru',[{k:'kind',l:'Jenis',o:[['hutang','Hutang (saya berhutang)'],['piutang','Piutang (orang berhutang ke saya)']]},{k:'person',l:'Nama orang'},{k:'amount',l:'Nominal (Rp)',t:'number'},{k:'date',l:'Tanggal',t:'date',v:today()},
  {k:'account_id',l:'Catat ke rekening',o:[['','Tidak dicatat ke rekening'],...accOpts()]},{k:'note',l:'Catatan',r:false}],
  async d=>{const {account_id,...r}=d;const debt=await ins('debts',r);
-  if(account_id)await ins('transactions',{account_id,debt_id:debt.id,kind:'debt',type:d.kind=='hutang'?'income':'expense',amount:d.amount,date:d.date,note:(d.kind=='hutang'?'Hutang dari ':'Pinjamkan ke ')+d.person})})};
+  if(account_id)await ins('transactions',{account_id,debt_id:debt.id,kind:'debt',type:d.kind=='hutang'?'income':'expense',amount:d.amount,date:d.date,note:(d.kind=='hutang'?'Hutang dari ':'Pinjamkan ke ')+d.person})});const sl=$('#modal form').elements.kind,c=()=>{const h=sl.value=='hutang';sl.style.color=h?'var(--ex)':'var(--in)';sl.style.background=h?'var(--exs)':'var(--ins)';sl.style.fontWeight=700};sl.onchange=c;c()};
 const fPay=id=>{const d=S.d.find(x=>x.id==id),sisa=d.amount-paid(d),h=d.kind=='hutang';
  form(`${h?'Bayar hutang ke':'Terima pembayaran dari'} ${esc(d.person)}`,[{k:'account_id',l:h?'Dibayar dari rekening':'Masuk ke rekening',o:accOpts()},{k:'amount',l:h?'Jumlah bayar (Rp)':'Jumlah diterima (Rp)',t:'number'},{k:'date',l:'Tanggal',t:'date',v:today()}],
  async x=>{const a=Number(x.amount);if(!(a>0))throw new Error('Nominal harus lebih dari 0');if(a>sisa)throw new Error('Melebihi sisa '+rp(sisa));
@@ -167,9 +168,9 @@ function render(){
  if(view=='cat'){act=`<button class=btn onclick=fCat()>+ Kategori</button>`;
   body=`<div class=grid>${[['income','Pemasukan','in'],['expense','Pengeluaran','ex']].map(([ty,l,cl])=>`<div class=card><h3 class=${cl}>${l}</h3><table>${S.c.filter(c=>c.type==ty).map(c=>`<tr><td>${esc(c.name)}${ty=='expense'?budCell(c):''}</td><td style="white-space:nowrap">${ty=='expense'?`<button class=x onclick="fBudget(S.c.find(x=>x.id=='${c.id}'))">Budget</button>`:''}<button class=x onclick="fCat(S.c.find(x=>x.id=='${c.id}'))">Edit</button><button class=x onclick="del('categories','${c.id}')">✕</button></td></tr>`).join('')}</table></div>`).join('')}</div>`}
  if(view=='debt'){act=`<button class=btn onclick=fDebt()>+ Hutang / Piutang</button>`;
-  body=`<div class=grid>${S.d.map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class=pill>${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
-  <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class=v>${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
-  <div class=bar><i style="width:${p/d.amount*100}%"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
+  body=`<div class=grid>${S.d.map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><button class=x onclick="del('debts','${d.id}')">✕</button></div>
+  <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class="v ${d.kind=='hutang'?'ex':'in'}">${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
+  <div class=bar><i style="width:${p/d.amount*100}%;background:${d.kind=='hutang'?'var(--ex)':'var(--in)'}"></i></div><div class=row style="margin-top:12px">${r>0?`<button class=ghost onclick="fPay('${d.id}')">${d.kind=='hutang'?'Bayar':'Terima'}</button>`:'<span class=in>Lunas ✓</span>'}</div></div>`}).join('')||'<p class=mu>Tidak ada hutang piutang.</p>'}</div>`}
  $('#root').innerHTML=`<div class=app><aside><div class=logo>Fin<i>Track</i></div>${nav.map(n=>`<a class="${view==n[0]?'on':''}" onclick="view='${n[0]}';render()">${n[1]}</a>`).join('')}<div class=sp></div><a onclick="sb.auth.signOut()">Keluar</a></aside>
  <main><div class=top><h1>${title[view]}</h1><div class=row>${view=='dash'||view=='tx'?`<input type=month value="${month}" onchange="month=this.value||month;render()" style="width:auto;margin:0">`:''}${act}</div></div>${body}</main></div>`;
  if(view=='dash')drawCharts(N);
