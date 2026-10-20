@@ -50,3 +50,7 @@ aside{top:0;bottom:0;left:0;right:auto;width:270px;flex-direction:column;justify
 .logo{display:block}.sp{display:block}aside a{padding:11px 14px;font-size:14px;text-align:left}
 .ov{display:block;position:fixed;inset:0;background:#0f172a66;z-index:15;opacity:0;pointer-events:none;transition:.2s}.app.open .ov{opacity:1;pointer-events:auto}
 .hd{padding:12px 16px}.pn{display:none}.pb{padding:5px 10px 5px 5px}main{padding:8px 16px 32px}}
+
+.gl{display:grid;grid-template-columns:1.6fr 1fr auto;gap:8px 16px;align-items:center;padding:14px 0;border-top:1px solid var(--bd)}.gl:first-of-type{border-top:0}
+.gq{text-align:right}.ga{display:flex;gap:4px;align-items:center;justify-content:flex-end}
+@media(max-width:800px){.gl{grid-template-columns:1fr auto}.ga{grid-column:1/-1;border-top:1px dashed var(--bd);padding-top:8px}}
