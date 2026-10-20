@@ -5,7 +5,7 @@ const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLoc
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nn=v=>v===''||v==null?null:v, today=()=>new Date().toISOString().slice(0,10);
 const sum=a=>a.reduce((s,x)=>s+Number(x.amount),0), cats=['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#84cc16'];
-let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[],g:[],gs:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
+let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[],g:[],gs:[],gl:[],gr:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
 const closeM=()=>$('#modal').classList.remove('on');
 
@@ -39,9 +39,9 @@ addEventListener('unhandledrejection',e=>{console.error(e.reason);toast(e.reason
 async function load(){
  const all=async(t,o,asc)=>{let r=[],i=0;for(;;){const {data,error}=await sb.from(t).select('*').order(o,{ascending:asc}).order('id').range(i,i+999);if(error)return{error};r=r.concat(data);if(data.length<1000)break;i+=1000}return{data:r}};
  const q=(t,o)=>all(t,o,t!='transactions'&&t!='debts');
- const [a,c,t,d,b,g,gs]=await Promise.all([q('accounts','created_at'),q('categories','name'),q('transactions','date'),q('debts','date'),q('budgets','created_at'),q('gold_lots','buy_date'),q('gold_sales','sell_date')]);
- const err=[a,c,t,d,b,g,gs].find(r=>r.error); if(err)toast(err.error.message);
- S={a:a.data||[],c:c.data||[],t:t.data||[],d:d.data||[],b:b.data||[],g:g.data||[],gs:gs.data||[]}; try{render()}catch(e){console.error(e);toast('Gagal menampilkan: '+e.message)}
+ const [a,c,t,d,b,g,gs,gl,gr]=await Promise.all([q('accounts','created_at'),q('categories','name'),q('transactions','date'),q('debts','date'),q('budgets','created_at'),q('gold_lots','buy_date'),q('gold_sales','sell_date'),q('gold_loans','loan_date'),q('gold_loan_returns','return_date')]);
+ const err=[a,c,t,d,b,g,gs,gl,gr].find(r=>r.error); if(err)toast(err.error.message);
+ S={a:a.data||[],c:c.data||[],t:t.data||[],d:d.data||[],b:b.data||[],g:g.data||[],gs:gs.data||[],gl:gl.data||[],gr:gr.data||[]}; try{render()}catch(e){console.error(e);toast('Gagal menampilkan: '+e.message)}
 }
 const bal=a=>Number(a.initial_balance)+S.t.filter(t=>t.account_id==a.id).reduce((s,t)=>s+(t.type=='income'?1:-1)*t.amount,0);
 const acc=id=>S.a.find(a=>a.id==id), cat=id=>S.c.find(c=>c.id==id);
@@ -191,9 +191,12 @@ const fDebtEdit=d=>{const h=d.kind=='hutang',pr=S.t.find(t=>t.debt_id==d.id&&t.k
   else if(x.account_id)await ins('transactions',{account_id:x.account_id,debt_id:d.id,kind:'debt',type:h?'income':'expense',amount:a,date:x.date,note:nt});
   if(x.person!=d.person){const {error}=await sb.from('transactions').update({note:(h?'Bayar hutang ke ':'Piutang dari ')+x.person}).eq('debt_id',d.id).eq('kind','payment');if(error)throw error}})};
 const gf=n=>Number(n).toLocaleString('id-ID',{maximumFractionDigits:4})+' g';
-const rem=l=>+(Number(l.grams)-S.gs.filter(x=>x.lot_id==l.id).reduce((s,x)=>s+Number(x.grams),0)).toFixed(4);
+const ret=x=>S.gr.filter(r=>r.loan_id==x.id).reduce((s,r)=>s+Number(r.grams),0);
+const out=l=>S.gl.filter(x=>x.lot_id==l.id).reduce((s,x)=>s+Number(x.grams)-ret(x),0);
+const lentTotal=()=>S.gl.reduce((s,x)=>s+Number(x.grams)-ret(x),0);
+const rem=l=>+(Number(l.grams)-S.gs.filter(x=>x.lot_id==l.id).reduce((s,x)=>s+Number(x.grams),0)-out(l)).toFixed(4);
 const gprev=(fm,els,fn)=>{const d=document.createElement('div');d.style.cssText='margin:-4px 0 14px;font-size:13px';fm.querySelector('.row').before(d);const u=()=>{d.innerHTML=fn()};els.forEach(e=>{e.addEventListener('input',u);e.addEventListener('change',u)});u()};
-async function delGold(tb,id){if(!confirm(tb=='gold_lots'?'Hapus emas ini beserta penjualannya? Saldo rekening ikut disesuaikan.':'Hapus penjualan ini? Saldo rekening ikut disesuaikan.'))return;const {error}=await sb.from(tb).delete().eq('id',id);error?toast(error.message):load()}
+async function delGold(tb,id){if(!confirm(tb=='gold_lots'?'Hapus emas ini beserta penjualan dan pinjamannya? Saldo rekening ikut disesuaikan.':tb=='gold_sales'?'Hapus penjualan ini? Saldo rekening ikut disesuaikan.':tb=='gold_loans'?'Hapus catatan pinjaman ini beserta pengembaliannya? Emas kembali ke stok.':'Hapus catatan pengembalian ini?'))return;const {error}=await sb.from(tb).delete().eq('id',id);error?toast(error.message):load()}
 const fGoldPrice=()=>form('Harga emas hari ini',[{k:'price',l:'Harga jual (buyback) per gram (Rp)',t:'number',v:U?.user_metadata?.gold_price}],
  async x=>{const {data,error}=await sb.auth.updateUser({data:{gold_price:Number(x.price)}});if(error)throw error;U=data.user});
 const fGoldBuy=()=>{if(needAcc())return;form('Beli Emas',[{k:'code',l:'Kode emas (unik, mis. ANTAM-5G-A12345)'},{k:'brand',l:'Merek / keterangan',r:false},{k:'account_id',l:'Dibayar dari rekening',o:accOpts()},{k:'buy_date',l:'Tanggal beli',t:'date',v:today()},{k:'grams',l:'Berat (gram)',t:'number'},{k:'total',l:'Total harga beli (Rp)',t:'number'}],
@@ -210,17 +213,39 @@ const fGoldSell=id=>{const ls=S.g.filter(l=>rem(l)>0);if(!ls.length){toast('Tida
    if(error){await sb.from('gold_sales').delete().eq('id',sale.id);throw error}});
   const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.lot_id,e.grams,e.total],()=>{const l=S.g.find(l=>l.id==e.lot_id.value),g=Number(e.grams.value)||0,t=Number(e.total.value)||0,d=t-g*l.price_per_gram;
    return `Sisa lot <b>${gf(rem(l))}</b> · harga beli <b>${rp(l.price_per_gram)}</b>/g<br>Harga jual per gram <b>${g&&t?rp(t/g):'—'}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
-const GF={q:'',s:'ada',p:0,sq:'',sp:0},GP=8;
+const GF={q:'',s:'ada',p:0,sq:'',sp:0,lq:'',ls:'open',lp:0},GP=8;
 const pl=n=>`<b class="${n>=0?'in':'ex'}">${n>=0?'+':'−'}${rp(Math.abs(n))}</b>`;
 const pager=(n,pg,fn)=>n>GP?`<div class=row style="justify-content:space-between;margin-top:12px"><span class=mu>${pg*GP+1}–${Math.min(n,pg*GP+GP)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="${fn}(-1)">‹ Prev</button> <button class=ghost ${(pg+1)*GP<n?'':'disabled'} onclick="${fn}(1)">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} data</div>`;
-const lotRow=l=>{const r=rem(l);return `<div class=gl style="${r?'':'opacity:.55'}"><div><b>${esc(l.code)}</b>${l.brand?` <span class=mu>· ${esc(l.brand)}</span>`:''}<div class=mu style="font-size:12px">Beli ${l.buy_date} · ${rp(l.price_per_gram)}/g</div></div><div class=gq><b>${gf(r)}</b><div class=mu style="font-size:12px">dari ${gf(l.grams)}</div></div><div class=ga>${r?`<button class=ghost style="padding:6px 12px" onclick="fGoldSell('${l.id}')">Jual</button>`:'<span class=pill>Habis</span>'}<button class=x onclick="fGoldEdit(S.g.find(x=>x.id=='${l.id}'))">Edit</button><button class=x onclick="delGold('gold_lots','${l.id}')">✕</button></div></div>`};
+const lotRow=l=>{const r=rem(l);return `<div class=gl style="${r?'':'opacity:.55'}"><div><b>${esc(l.code)}</b>${l.brand?` <span class=mu>· ${esc(l.brand)}</span>`:''}<div class=mu style="font-size:12px">Beli ${l.buy_date} · ${rp(l.price_per_gram)}/g</div></div><div class=gq><b>${gf(r)}</b><div class=mu style="font-size:12px">dari ${gf(l.grams)}${out(l)>0?` · dipinjam ${gf(out(l))}`:''}</div></div><div class=ga>${r?`<button class=ghost style="padding:6px 12px" onclick="fGoldSell('${l.id}')">Jual</button>`:`<span class=pill>${out(l)>0?'Dipinjam':'Habis'}</span>`}<button class=x onclick="fGoldEdit(S.g.find(x=>x.id=='${l.id}'))">Edit</button><button class=x onclick="delGold('gold_lots','${l.id}')">✕</button></div></div>`};
 const saleRow=x=>{const l=S.g.find(l=>l.id==x.lot_id);return `<div class=gl><div><b>${esc(l?.code||'-')}</b><div class=mu style="font-size:12px">${x.sell_date} · ${gf(x.grams)} @ ${rp(x.price_per_gram)}</div></div><div class=gq>${pl(x.grams*(x.price_per_gram-(l?.price_per_gram||0)))}<div class=mu style="font-size:12px">untung/rugi</div></div><div class=ga><button class=x onclick="fGoldSaleEdit(S.gs.find(z=>z.id=='${x.id}'))">Edit</button><button class=x onclick="delGold('gold_sales','${x.id}')">✕</button></div></div>`};
-const lotList=()=>{const q=norm(GF.q),a=[...S.g].sort((a,b)=>b.buy_date.localeCompare(a.buy_date)).filter(l=>(GF.s=='all'||(GF.s=='ada')==(rem(l)>0))&&(!q||norm(l.code+' '+(l.brand||'')).includes(q))),pg=GF.p=Math.min(GF.p,Math.max(0,Math.ceil(a.length/GP)-1));
+const lotList=()=>{const q=norm(GF.q),a=[...S.g].sort((a,b)=>b.buy_date.localeCompare(a.buy_date)).filter(l=>(GF.s=='all'||(GF.s=='ada')==(rem(l)>0||out(l)>0))&&(!q||norm(l.code+' '+(l.brand||'')).includes(q))),pg=GF.p=Math.min(GF.p,Math.max(0,Math.ceil(a.length/GP)-1));
  return (a.slice(pg*GP,pg*GP+GP).map(lotRow).join('')||'<p class=mu style="text-align:center;padding:24px 0">Tidak ada emas.</p>')+pager(a.length,pg,'gPg1')};
 const saleList=()=>{const q=norm(GF.sq),a=[...S.gs].sort((a,b)=>b.sell_date.localeCompare(a.sell_date)).filter(x=>!q||norm((S.g.find(l=>l.id==x.lot_id)?.code||'')+' '+x.sell_date).includes(q)),pg=GF.sp=Math.min(GF.sp,Math.max(0,Math.ceil(a.length/GP)-1));
  return (a.slice(pg*GP,pg*GP+GP).map(saleRow).join('')||'<p class=mu style="text-align:center;padding:24px 0">Tidak ada penjualan.</p>')+pager(a.length,pg,'gPg2')};
 const gPg1=d=>{GF.p+=d;$('#gl1').innerHTML=lotList()};
 const gPg2=d=>{GF.sp+=d;$('#gl2').innerHTML=saleList()};
+const loanRow=x=>{const l=S.g.find(l=>l.id==x.lot_id),r=+(Number(x.grams)-ret(x)).toFixed(4),rs=S.gr.filter(z=>z.loan_id==x.id).sort((a,b)=>b.return_date.localeCompare(a.return_date));
+ return `<div class=gl style="${r>0?'':'opacity:.6'};align-items:start"><div><b>${esc(x.person)}</b> <span class=mu>· ${esc(l?.code||'-')}</span><div class=mu style="font-size:12px">${x.loan_date} · pinjam ${gf(x.grams)}${x.note?' · '+esc(x.note):''}</div>
+ <div class=bar style="max-width:240px;margin-top:8px"><i style="width:${Math.min(100,(x.grams-r)/x.grams*100)}%;background:var(--in)"></i></div>
+ ${rs.map(z=>`<div class=mu style="font-size:12px;margin-top:4px">↩ ${z.return_date} · ${gf(z.grams)} <button class=x style="padding:0 6px" onclick="delGold('gold_loan_returns','${z.id}')">✕</button></div>`).join('')}</div>
+ <div class=gq><b>${gf(r)}</b><div class=mu style="font-size:12px">${r>0?'belum kembali':'sudah kembali'}</div></div>
+ <div class=ga>${r>0?`<button class=ghost style="padding:6px 12px" onclick="fGoldReturn('${x.id}')">Terima</button>`:'<span class=pill>Lunas</span>'}<button class=x onclick="fGoldLoanEdit(S.gl.find(z=>z.id=='${x.id}'))">Edit</button><button class=x onclick="delGold('gold_loans','${x.id}')">✕</button></div></div>`};
+const loanList=()=>{const q=norm(GF.lq),a=[...S.gl].sort((a,b)=>b.loan_date.localeCompare(a.loan_date)).filter(x=>(GF.ls=='all'||Number(x.grams)-ret(x)>1e-9)&&(!q||norm(x.person+' '+(S.g.find(l=>l.id==x.lot_id)?.code||'')).includes(q))),pg=GF.lp=Math.min(GF.lp,Math.max(0,Math.ceil(a.length/GP)-1));
+ return (a.slice(pg*GP,pg*GP+GP).map(loanRow).join('')||'<p class=mu style="text-align:center;padding:24px 0">Tidak ada piutang emas.</p>')+pager(a.length,pg,'gPg3')};
+const gPg3=d=>{GF.lp+=d;$('#gl3').innerHTML=loanList()};
+const fGoldLend=id=>{const ls=S.g.filter(l=>rem(l)>0);if(!ls.length){toast('Tidak ada emas tersisa untuk dipinjamkan.');return}id=typeof id=='string'?id:ls[0].id;
+ form('Pinjamkan Emas',[{k:'lot_id',l:'Emas yang dipinjamkan (kode)',o:ls.map(l=>[l.id,`${l.code} · sisa ${gf(rem(l))}`]),v:id},{k:'person',l:'Dipinjam oleh'},{k:'loan_date',l:'Tanggal',t:'date',v:today()},{k:'grams',l:'Berat dipinjamkan (gram)',t:'number'},{k:'note',l:'Catatan',r:false}],
+ async x=>{const l=S.g.find(l=>l.id==x.lot_id),g=Number(x.grams);if(!(g>0))throw new Error('Berat harus lebih dari 0');if(g>rem(l)+1e-9)throw new Error('Melebihi sisa '+gf(rem(l)));
+  await ins('gold_loans',{lot_id:l.id,person:x.person.trim(),grams:g,loan_date:x.loan_date,note:nn(x.note)})});
+ const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.lot_id,e.grams],()=>{const l=S.g.find(l=>l.id==e.lot_id.value),g=Number(e.grams.value)||0;return `Sisa emas ini <b>${gf(rem(l))}</b> → setelah dipinjamkan <b>${gf(rem(l)-g)}</b>. Saldo rekening tidak berubah.`})};
+const fGoldReturn=id=>{const x=S.gl.find(z=>z.id==id),l=S.g.find(l=>l.id==x.lot_id),sisa=+(Number(x.grams)-ret(x)).toFixed(4);
+ form('Terima Emas dari '+esc(x.person),[{k:'return_date',l:'Tanggal diterima',t:'date',v:today()},{k:'grams',l:`Berat dikembalikan (sisa ${gf(sisa)})`,t:'number'},{k:'note',l:'Catatan',r:false}],
+ async d=>{const g=Number(d.grams);if(!(g>0))throw new Error('Berat harus lebih dari 0');if(g>sisa+1e-9)throw new Error('Melebihi sisa '+gf(sisa));await ins('gold_loan_returns',{loan_id:x.id,return_date:d.return_date,grams:g,note:nn(d.note)})});
+ const fm=$('#modal form'),e=fm.elements;e.grams.max=sisa;gprev(fm,[e.grams],()=>{const r=sisa-(Number(e.grams.value)||0);return r<0?'<span class=ex>Melebihi sisa</span>':`Sisa belum kembali <b>${gf(r)}</b>${r==0?' · Lunas ✓':''}<br>Emas kembali ke stok <b>${esc(l?.code||'')}</b>`})};
+const fGoldLoanEdit=x=>{const l=S.g.find(l=>l.id==x.lot_id),r=ret(x),max=+(rem(l)+Number(x.grams)).toFixed(4);
+ form('Edit Pinjaman · '+esc(l.code),[{k:'person',l:'Dipinjam oleh',v:x.person},{k:'loan_date',l:'Tanggal',t:'date',v:x.loan_date},{k:'grams',l:`Berat dipinjamkan (sudah kembali ${gf(r)}, maks ${gf(max)})`,t:'number',v:x.grams},{k:'note',l:'Catatan',r:false,v:x.note}],
+ async d=>{const g=Number(d.grams);if(!(g>0))throw new Error('Berat harus lebih dari 0');if(g<r-1e-9)throw new Error('Tidak boleh kurang dari yang sudah dikembalikan ('+gf(r)+')');if(g>max+1e-9)throw new Error('Melebihi sisa '+gf(max));
+  await upd('gold_loans',x.id,{person:d.person.trim(),loan_date:d.loan_date,grams:g,note:nn(d.note)})})};
 const goldView=()=>{
  const lots=[...S.g].sort((a,b)=>b.buy_date.localeCompare(a.buy_date)),price=Number(U?.user_metadata?.gold_price)||0,own=lots.filter(l=>rem(l)>0);
  const grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),val=grams*price;
@@ -229,13 +254,14 @@ const goldView=()=>{
  const body=`<div class=grid><div class="card hero"><div class=k>Emas dimiliki</div><div class=v>${gf(grams)}</div></div>
  <div class=card><div class=k>Modal (sisa emas)</div><div class=v>${rp(cost)}</div></div>
  <div class=card><div class=k>Nilai sekarang ${price?`@ ${rp(price)}/g`:''}</div><div class=v>${price?rp(val):'—'}</div>${price?`<div>${pl(val-cost)} <span class=mu>belum terealisasi</span></div>`:'<div class=mu>Isi lewat tombol "Harga hari ini"</div>'}</div>
- <div class=card><div class=k>Untung/rugi terealisasi</div><div class=v style="font-size:20px">${pl(real)}</div></div></div>
+ <div class=card><div class=k>Untung/rugi terealisasi</div><div class=v style="font-size:20px">${pl(real)}</div></div><div class=card><div class=k>Sedang dipinjamkan</div><div class=v style="font-size:20px">${gf(lentTotal())}</div><div class=mu style="font-size:12px">${S.gl.filter(x=>Number(x.grams)-ret(x)>1e-9).length} pinjaman aktif</div></div></div>
   <div class=card style="margin-bottom:16px"><h3>Daftar emas</h3><div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari kode / merek…" value="${esc(GF.q)}" oninput="GF.q=this.value;GF.p=0;$('#gl1').innerHTML=lotList()"><select onchange="GF.s=this.value;GF.p=0;$('#gl1').innerHTML=lotList()"><option value=ada ${GF.s=='ada'?'selected':''}>Masih ada</option><option value=habis ${GF.s=='habis'?'selected':''}>Habis</option><option value=all ${GF.s=='all'?'selected':''}>Semua</option></select></div><div id=gl1>${lotList()}</div></div>
+  <div class=card style="margin-bottom:16px"><h3>Piutang emas</h3><div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / kode emas…" value="${esc(GF.lq)}" oninput="GF.lq=this.value;GF.lp=0;$('#gl3').innerHTML=loanList()"><select onchange="GF.ls=this.value;GF.lp=0;$('#gl3').innerHTML=loanList()"><option value=open ${GF.ls=='open'?'selected':''}>Belum kembali</option><option value=all ${GF.ls=='all'?'selected':''}>Semua</option></select></div><div id=gl3>${loanList()}</div></div>
   <div class=card><h3>Riwayat penjualan</h3><div class=fl style="grid-template-columns:1fr"><input placeholder="Cari kode emas / tanggal (mis. 2025-03)…" value="${esc(GF.sq)}" oninput="GF.sq=this.value;GF.sp=0;$('#gl2').innerHTML=saleList()"></div><div id=gl2>${saleList()}</div></div>`;
- return {body,act:`<button class=ghost onclick=fGoldPrice()>Harga hari ini</button><button class=ghost onclick="fGoldSell()">Jual</button><button class=btn onclick=fGoldBuy()>+ Beli emas</button>`}};
+ return {body,act:`<button class=ghost onclick=fGoldPrice()>Harga hari ini</button><button class=ghost onclick="fGoldSell()">Jual</button><button class=ghost onclick="fGoldLend()">Pinjamkan</button><button class=btn onclick=fGoldBuy()>+ Beli emas</button>`}};
 const goldEditTx=id=>{const t=S.t.find(x=>x.id==id);t.gold_lot_id?fGoldEdit(S.g.find(l=>l.id==t.gold_lot_id)):fGoldSaleEdit(S.gs.find(x=>x.id==t.gold_sale_id))};
 const fGoldEdit=l=>{const pr=S.t.find(t=>t.gold_lot_id==l.id),sold=+(Number(l.grams)-rem(l)).toFixed(4);
- form('Edit Pembelian Emas',[{k:'code',l:'Kode emas',v:l.code},{k:'brand',l:'Merek / keterangan',r:false,v:l.brand},{k:'account_id',l:'Dibayar dari rekening',o:accOpts(),v:pr?.account_id},{k:'buy_date',l:'Tanggal beli',t:'date',v:l.buy_date},{k:'grams',l:`Berat (gram) — sudah terjual ${gf(sold)}`,t:'number',v:l.grams},{k:'total',l:'Total harga beli (Rp)',t:'number',v:Math.round(l.grams*l.price_per_gram)}],
+ form('Edit Pembelian Emas',[{k:'code',l:'Kode emas',v:l.code},{k:'brand',l:'Merek / keterangan',r:false,v:l.brand},{k:'account_id',l:'Dibayar dari rekening',o:accOpts(),v:pr?.account_id},{k:'buy_date',l:'Tanggal beli',t:'date',v:l.buy_date},{k:'grams',l:`Berat (gram) — terjual/dipinjam ${gf(sold)}`,t:'number',v:l.grams},{k:'total',l:'Total harga beli (Rp)',t:'number',v:Math.round(l.grams*l.price_per_gram)}],
  async x=>{const g=Number(x.grams),tot=Math.round(Number(x.total)),code=x.code.trim();if(!(g>0&&tot>0))throw new Error('Berat dan total harga harus lebih dari 0');
   if(g<sold-1e-9)throw new Error('Berat tidak boleh kurang dari yang sudah terjual ('+gf(sold)+')');if(S.g.some(o=>o.id!=l.id&&norm(o.code)==norm(code)))throw new Error('Kode emas sudah dipakai');
   await upd('gold_lots',l.id,{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:Math.round(tot/g*100)/100});
@@ -252,7 +278,7 @@ const fGoldSaleEdit=sl=>{const l=S.g.find(l=>l.id==sl.lot_id),tx=S.t.find(t=>t.g
   const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.total],()=>{const g=Number(e.grams.value)||0,t=Number(e.total.value)||0,d=t-g*l.price_per_gram;
    return `Harga beli <b>${rp(l.price_per_gram)}</b>/g · harga jual per gram <b>${g&&t?rp(t/g):'—'}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
 const goldCard=()=>{const own=S.g.filter(l=>rem(l)>0),grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),price=Number(U?.user_metadata?.gold_price)||0,val=grams*price,d=val-cost;
- return `<div class=card style="cursor:pointer" onclick="view='gold';render()"><div class=k>Tabungan emas</div><div class=v>${gf(grams)}</div>${!S.g.length?'<div class=mu style="font-size:12px">Belum ada emas</div>':price?`<div style="font-weight:700;font-size:13px">${rp(val)}</div><div class=mu style="font-size:11px"><span class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</span> vs modal<br>@ ${rp(price)}/g</div>`:`<div class=mu style="font-size:12px">Modal ${rp(cost)} · isi "Harga hari ini" untuk nilai sekarang</div>`}</div>`};
+ return `<div class=card style="cursor:pointer" onclick="view='gold';render()"><div class=k>Tabungan emas</div><div class=v>${gf(grams)}</div>${lentTotal()>1e-9?`<div class=mu style="font-size:11px">+${gf(lentTotal())} dipinjamkan</div>`:''}${!S.g.length?'<div class=mu style="font-size:12px">Belum ada emas</div>':price?`<div style="font-weight:700;font-size:13px">${rp(val)}</div><div class=mu style="font-size:11px"><span class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</span> vs modal<br>@ ${rp(price)}/g</div>`:`<div class=mu style="font-size:12px">Modal ${rp(cost)} · isi "Harga hari ini" untuk nilai sekarang</div>`}</div>`};
 const togSB=()=>{SB=!SB;render()};
 const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user_metadata?.full_name,r:false},{k:'password',l:'Password baru (kosongkan jika tidak diubah)',t:'password',r:false}],
  async d=>{if(d.password&&d.password.length<6)throw new Error('Password minimal 6 karakter');const p={data:{full_name:d.full_name.trim()}};if(d.password)p.password=d.password;
