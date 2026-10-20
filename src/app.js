@@ -196,20 +196,20 @@ const gprev=(fm,els,fn)=>{const d=document.createElement('div');d.style.cssText=
 async function delGold(tb,id){if(!confirm(tb=='gold_lots'?'Hapus emas ini beserta penjualannya? Saldo rekening ikut disesuaikan.':'Hapus penjualan ini? Saldo rekening ikut disesuaikan.'))return;const {error}=await sb.from(tb).delete().eq('id',id);error?toast(error.message):load()}
 const fGoldPrice=()=>form('Harga emas hari ini',[{k:'price',l:'Harga jual (buyback) per gram (Rp)',t:'number',v:U?.user_metadata?.gold_price}],
  async x=>{const {data,error}=await sb.auth.updateUser({data:{gold_price:Number(x.price)}});if(error)throw error;U=data.user});
-const fGoldBuy=()=>{if(needAcc())return;form('Beli Emas',[{k:'code',l:'Kode emas (unik, mis. ANTAM-5G-A12345)'},{k:'brand',l:'Merek / keterangan',r:false},{k:'account_id',l:'Dibayar dari rekening',o:accOpts()},{k:'buy_date',l:'Tanggal beli',t:'date',v:today()},{k:'grams',l:'Berat (gram)',t:'number'},{k:'price_per_gram',l:'Harga beli per gram (Rp)',t:'number'}],
- async x=>{const g=Number(x.grams),p=Number(x.price_per_gram),code=x.code.trim();if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');if(S.g.some(l=>norm(l.code)==norm(code)))throw new Error('Kode emas sudah dipakai');
-  const lot=await ins('gold_lots',{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:p});
-  const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'expense',amount:Math.round(g*p),date:x.buy_date,note:`Beli emas ${code} ${gf(g)}`,gold_lot_id:lot.id});
+const fGoldBuy=()=>{if(needAcc())return;form('Beli Emas',[{k:'code',l:'Kode emas (unik, mis. ANTAM-5G-A12345)'},{k:'brand',l:'Merek / keterangan',r:false},{k:'account_id',l:'Dibayar dari rekening',o:accOpts()},{k:'buy_date',l:'Tanggal beli',t:'date',v:today()},{k:'grams',l:'Berat (gram)',t:'number'},{k:'total',l:'Total harga beli (Rp)',t:'number'}],
+ async x=>{const g=Number(x.grams),tot=Math.round(Number(x.total)),code=x.code.trim();if(!(g>0&&tot>0))throw new Error('Berat dan total harga harus lebih dari 0');if(S.g.some(l=>norm(l.code)==norm(code)))throw new Error('Kode emas sudah dipakai');
+  const lot=await ins('gold_lots',{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:Math.round(tot/g*100)/100});
+  const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'expense',amount:tot,date:x.buy_date,note:`Beli emas ${code} ${gf(g)}`,gold_lot_id:lot.id});
   if(error){await sb.from('gold_lots').delete().eq('id',lot.id);throw error}});
- const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.price_per_gram],()=>`Total bayar: <b>${rp((Number(e.grams.value)||0)*(Number(e.price_per_gram.value)||0))}</b>`)};
+ const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.total],()=>{const g=Number(e.grams.value)||0,t=Number(e.total.value)||0;return `Harga beli per gram: <b>${g&&t?rp(t/g):'—'}</b>`})};
 const fGoldSell=id=>{const ls=S.g.filter(l=>rem(l)>0);if(!ls.length){toast('Tidak ada emas tersisa untuk dijual.');return}if(needAcc())return;id=typeof id=='string'?id:ls[0].id;
- form('Jual Emas',[{k:'lot_id',l:'Pilih emas (kode)',o:ls.map(l=>[l.id,`${l.code} · sisa ${gf(rem(l))}`]),v:id},{k:'account_id',l:'Masuk ke rekening',o:accOpts()},{k:'sell_date',l:'Tanggal jual',t:'date',v:today()},{k:'grams',l:'Berat dijual (gram)',t:'number'},{k:'price_per_gram',l:'Harga jual per gram (Rp)',t:'number'}],
- async x=>{const l=S.g.find(l=>l.id==x.lot_id),g=Number(x.grams),p=Number(x.price_per_gram);if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');if(g>rem(l)+1e-9)throw new Error('Melebihi sisa '+gf(rem(l)));
-  const sale=await ins('gold_sales',{lot_id:l.id,sell_date:x.sell_date,grams:g,price_per_gram:p});
-  const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'income',amount:Math.round(g*p),date:x.sell_date,note:`Jual emas ${l.code} ${gf(g)}`,gold_sale_id:sale.id});
-  if(error){await sb.from('gold_sales').delete().eq('id',sale.id);throw error}});
- const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.lot_id,e.grams,e.price_per_gram],()=>{const l=S.g.find(l=>l.id==e.lot_id.value),g=Number(e.grams.value)||0,p=Number(e.price_per_gram.value)||0,d=g*(p-l.price_per_gram);
-  return `Sisa lot <b>${gf(rem(l))}</b> · harga beli <b>${rp(l.price_per_gram)}</b>/g<br>Total diterima <b>${rp(g*p)}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
+  form('Jual Emas',[{k:'lot_id',l:'Pilih emas (kode)',o:ls.map(l=>[l.id,`${l.code} · sisa ${gf(rem(l))}`]),v:id},{k:'account_id',l:'Masuk ke rekening',o:accOpts()},{k:'sell_date',l:'Tanggal jual',t:'date',v:today()},{k:'grams',l:'Berat dijual (gram)',t:'number'},{k:'total',l:'Total harga jual (Rp)',t:'number'}],
+  async x=>{const l=S.g.find(l=>l.id==x.lot_id),g=Number(x.grams),tot=Math.round(Number(x.total));if(!(g>0&&tot>0))throw new Error('Berat dan total harga harus lebih dari 0');if(g>rem(l)+1e-9)throw new Error('Melebihi sisa '+gf(rem(l)));
+   const sale=await ins('gold_sales',{lot_id:l.id,sell_date:x.sell_date,grams:g,price_per_gram:Math.round(tot/g*100)/100});
+   const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'income',amount:tot,date:x.sell_date,note:`Jual emas ${l.code} ${gf(g)}`,gold_sale_id:sale.id});
+   if(error){await sb.from('gold_sales').delete().eq('id',sale.id);throw error}});
+  const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.lot_id,e.grams,e.total],()=>{const l=S.g.find(l=>l.id==e.lot_id.value),g=Number(e.grams.value)||0,t=Number(e.total.value)||0,d=t-g*l.price_per_gram;
+   return `Sisa lot <b>${gf(rem(l))}</b> · harga beli <b>${rp(l.price_per_gram)}</b>/g<br>Harga jual per gram <b>${g&&t?rp(t/g):'—'}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
 const goldView=()=>{
  const lots=[...S.g].sort((a,b)=>b.buy_date.localeCompare(a.buy_date)),price=Number(U?.user_metadata?.gold_price)||0,own=lots.filter(l=>rem(l)>0);
  const grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),val=grams*price;
@@ -224,22 +224,22 @@ const goldView=()=>{
  return {body,act:`<button class=ghost onclick=fGoldPrice()>Harga hari ini</button><button class=ghost onclick="fGoldSell()">Jual</button><button class=btn onclick=fGoldBuy()>+ Beli emas</button>`}};
 const goldEditTx=id=>{const t=S.t.find(x=>x.id==id);t.gold_lot_id?fGoldEdit(S.g.find(l=>l.id==t.gold_lot_id)):fGoldSaleEdit(S.gs.find(x=>x.id==t.gold_sale_id))};
 const fGoldEdit=l=>{const pr=S.t.find(t=>t.gold_lot_id==l.id),sold=+(Number(l.grams)-rem(l)).toFixed(4);
- form('Edit Pembelian Emas',[{k:'code',l:'Kode emas',v:l.code},{k:'brand',l:'Merek / keterangan',r:false,v:l.brand},{k:'account_id',l:'Dibayar dari rekening',o:accOpts(),v:pr?.account_id},{k:'buy_date',l:'Tanggal beli',t:'date',v:l.buy_date},{k:'grams',l:`Berat (gram) — sudah terjual ${gf(sold)}`,t:'number',v:l.grams},{k:'price_per_gram',l:'Harga beli per gram (Rp)',t:'number',v:l.price_per_gram}],
- async x=>{const g=Number(x.grams),p=Number(x.price_per_gram),code=x.code.trim();if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');
+ form('Edit Pembelian Emas',[{k:'code',l:'Kode emas',v:l.code},{k:'brand',l:'Merek / keterangan',r:false,v:l.brand},{k:'account_id',l:'Dibayar dari rekening',o:accOpts(),v:pr?.account_id},{k:'buy_date',l:'Tanggal beli',t:'date',v:l.buy_date},{k:'grams',l:`Berat (gram) — sudah terjual ${gf(sold)}`,t:'number',v:l.grams},{k:'total',l:'Total harga beli (Rp)',t:'number',v:Math.round(l.grams*l.price_per_gram)}],
+ async x=>{const g=Number(x.grams),tot=Math.round(Number(x.total)),code=x.code.trim();if(!(g>0&&tot>0))throw new Error('Berat dan total harga harus lebih dari 0');
   if(g<sold-1e-9)throw new Error('Berat tidak boleh kurang dari yang sudah terjual ('+gf(sold)+')');if(S.g.some(o=>o.id!=l.id&&norm(o.code)==norm(code)))throw new Error('Kode emas sudah dipakai');
-  await upd('gold_lots',l.id,{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:p});
-  const row={account_id:x.account_id,amount:Math.round(g*p),date:x.buy_date,note:`Beli emas ${code} ${gf(g)}`};
+  await upd('gold_lots',l.id,{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:Math.round(tot/g*100)/100});
+  const row={account_id:x.account_id,amount:tot,date:x.buy_date,note:`Beli emas ${code} ${gf(g)}`};
   if(pr)await upd('transactions',pr.id,row);else{const {error}=await sb.from('transactions').insert({...row,kind:'gold',type:'expense',gold_lot_id:l.id});if(error)throw error}
   if(code!=l.code)for(const sl of S.gs.filter(z=>z.lot_id==l.id)){const t=S.t.find(t=>t.gold_sale_id==sl.id);if(t)await upd('transactions',t.id,{note:`Jual emas ${code} ${gf(sl.grams)}`})}});
- const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.price_per_gram],()=>`Total bayar: <b>${rp((Number(e.grams.value)||0)*(Number(e.price_per_gram.value)||0))}</b>`)};
+ const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.total],()=>{const g=Number(e.grams.value)||0,t=Number(e.total.value)||0;return `Harga beli per gram: <b>${g&&t?rp(t/g):'—'}</b>`})};
 const fGoldSaleEdit=sl=>{const l=S.g.find(l=>l.id==sl.lot_id),tx=S.t.find(t=>t.gold_sale_id==sl.id),max=+(rem(l)+Number(sl.grams)).toFixed(4);
- form('Edit Penjualan · '+esc(l.code),[{k:'account_id',l:'Masuk ke rekening',o:accOpts(),v:tx?.account_id},{k:'sell_date',l:'Tanggal jual',t:'date',v:sl.sell_date},{k:'grams',l:`Berat dijual (maks ${gf(max)})`,t:'number',v:sl.grams},{k:'price_per_gram',l:'Harga jual per gram (Rp)',t:'number',v:sl.price_per_gram}],
- async x=>{const g=Number(x.grams),p=Number(x.price_per_gram);if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');if(g>max+1e-9)throw new Error('Melebihi sisa '+gf(max));
-  await upd('gold_sales',sl.id,{sell_date:x.sell_date,grams:g,price_per_gram:p});
-  const row={account_id:x.account_id,amount:Math.round(g*p),date:x.sell_date,note:`Jual emas ${l.code} ${gf(g)}`};
-  if(tx)await upd('transactions',tx.id,row);else{const {error}=await sb.from('transactions').insert({...row,kind:'gold',type:'income',gold_sale_id:sl.id});if(error)throw error}});
- const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.price_per_gram],()=>{const g=Number(e.grams.value)||0,p=Number(e.price_per_gram.value)||0,d=g*(p-l.price_per_gram);
-  return `Harga beli <b>${rp(l.price_per_gram)}</b>/g · total diterima <b>${rp(g*p)}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
+  form('Edit Penjualan · '+esc(l.code),[{k:'account_id',l:'Masuk ke rekening',o:accOpts(),v:tx?.account_id},{k:'sell_date',l:'Tanggal jual',t:'date',v:sl.sell_date},{k:'grams',l:`Berat dijual (maks ${gf(max)})`,t:'number',v:sl.grams},{k:'total',l:'Total harga jual (Rp)',t:'number',v:Math.round(sl.grams*sl.price_per_gram)}],
+  async x=>{const g=Number(x.grams),tot=Math.round(Number(x.total));if(!(g>0&&tot>0))throw new Error('Berat dan total harga harus lebih dari 0');if(g>max+1e-9)throw new Error('Melebihi sisa '+gf(max));
+   await upd('gold_sales',sl.id,{sell_date:x.sell_date,grams:g,price_per_gram:Math.round(tot/g*100)/100});
+   const row={account_id:x.account_id,amount:tot,date:x.sell_date,note:`Jual emas ${l.code} ${gf(g)}`};
+   if(tx)await upd('transactions',tx.id,row);else{const {error}=await sb.from('transactions').insert({...row,kind:'gold',type:'income',gold_sale_id:sl.id});if(error)throw error}});
+  const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.total],()=>{const g=Number(e.grams.value)||0,t=Number(e.total.value)||0,d=t-g*l.price_per_gram;
+   return `Harga beli <b>${rp(l.price_per_gram)}</b>/g · harga jual per gram <b>${g&&t?rp(t/g):'—'}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
 const goldCard=()=>{const own=S.g.filter(l=>rem(l)>0),grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),price=Number(U?.user_metadata?.gold_price)||0,val=grams*price,d=val-cost;
  return `<div class=card style="cursor:pointer" onclick="view='gold';render()"><div class=k>Tabungan emas</div><div class=v>${gf(grams)}</div>${!S.g.length?'<div class=mu style="font-size:12px">Belum ada emas</div>':price?`<div style="font-weight:700;font-size:13px">${rp(val)}</div><div class=mu style="font-size:11px"><span class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</span> vs modal<br>@ ${rp(price)}/g</div>`:`<div class=mu style="font-size:12px">Modal ${rp(cost)} · isi "Harga hari ini" untuk nilai sekarang</div>`}</div>`};
 const togSB=()=>{SB=!SB;render()};
