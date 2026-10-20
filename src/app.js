@@ -240,6 +240,8 @@ const fGoldSaleEdit=sl=>{const l=S.g.find(l=>l.id==sl.lot_id),tx=S.t.find(t=>t.g
   if(tx)await upd('transactions',tx.id,row);else{const {error}=await sb.from('transactions').insert({...row,kind:'gold',type:'income',gold_sale_id:sl.id});if(error)throw error}});
  const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.price_per_gram],()=>{const g=Number(e.grams.value)||0,p=Number(e.price_per_gram.value)||0,d=g*(p-l.price_per_gram);
   return `Harga beli <b>${rp(l.price_per_gram)}</b>/g · total diterima <b>${rp(g*p)}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
+const goldCard=()=>{const own=S.g.filter(l=>rem(l)>0),grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),price=Number(U?.user_metadata?.gold_price)||0,val=grams*price,d=val-cost;
+ return `<div class=card style="cursor:pointer" onclick="view='gold';render()"><div class=k>Tabungan emas</div><div class=v>${gf(grams)}</div>${!S.g.length?'<div class=mu style="font-size:12px">Belum ada emas</div>':price?`<div style="font-weight:700">${rp(val)}</div><div class=mu style="font-size:12px"><span class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</span> vs modal · @ ${rp(price)}/g</div>`:`<div class=mu style="font-size:12px">Modal ${rp(cost)} · isi "Harga hari ini" untuk nilai sekarang</div>`}</div>`};
 const togSB=()=>{SB=!SB;render()};
 const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user_metadata?.full_name,r:false},{k:'password',l:'Password baru (kosongkan jika tidak diubah)',t:'password',r:false}],
  async d=>{if(d.password&&d.password.length<6)throw new Error('Password minimal 6 karakter');const p={data:{full_name:d.full_name.trim()}};if(d.password)p.password=d.password;
@@ -260,7 +262,7 @@ function render(){
   const hut=S.d.filter(d=>d.kind=='hutang').reduce((s,d)=>s+d.amount-paid(d),0), pi=S.d.filter(d=>d.kind=='piutang').reduce((s,d)=>s+d.amount-paid(d),0);
   body=alerts().map(a=>`<div class="al ${a.p>=1?'over':''}">${a.p>=1?'⚠️ Budget':'🔔 Budget'} ${esc(a.c.name)} ${a.p>=1?'terlampaui':'hampir habis'} — ${rp(a.s)} dari ${rp(a.b.amount)} (${Math.round(a.p*100)}%)</div>`).join('')+`<div class=grid><div class="card hero"><div class=k>Total saldo</div><div class=v>${rp(S.a.reduce((s,a)=>s+bal(a),0))}</div></div>
   <div class=card><div class=k>Pemasukan bulan ini</div><div class="v in">${rp(inc)}</div></div><div class=card><div class=k>Pengeluaran bulan ini</div><div class="v ex">${rp(exp)}</div></div>
-  <div class=card><div class=k>Hutang · Piutang</div><div class=v style="font-size:17px"><span class=ex>${rp(hut)}</span> · <span class=in>${rp(pi)}</span></div></div></div>
+  <div class=card><div class=k>Hutang · Piutang</div><div class=v style="font-size:17px"><span class=ex>${rp(hut)}</span> · <span class=in>${rp(pi)}</span></div></div>${goldCard()}</div>
   <div class=two><div class=card><h3>Pengeluaran per kategori</h3><canvas id=c1 height=220></canvas></div><div class=card><h3>6 bulan terakhir</h3><canvas id=c2 height=220></canvas></div></div>
   <div class=grid style="grid-template-columns:repeat(auto-fit,minmax(320px,1fr));margin:16px 0">${brk(N,'expense')}${brk(N,'income')}</div><div class=card><h3>Mutasi terbaru</h3><table>${txRows(S.t.slice(0,6))}</table></div>`;
  }
