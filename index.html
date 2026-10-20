@@ -43,7 +43,7 @@ table{width:100%;border-collapse:collapse}td,th{padding:12px 8px;text-align:left
 </style></head><body>
 <div id="root"></div><div id="modal"></div><div id="toast"></div>
 <script>
-const SUPABASE_URL='https://YOUR-PROJECT.supabase.co', SUPABASE_KEY='YOUR-ANON-KEY';
+const SUPABASE_URL='https://gigqsxuedzvzuhjintwl.supabase.co', SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdpZ3FzeHVlZHp2enVoamludHdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0NDM4MzYsImV4cCI6MjEwODAxOTgzNn0.pyR508lDvzSWixxNNEEKy3UanlxYUS2KWot_s2kEoSI';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLocaleString('id-ID');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
