@@ -54,3 +54,10 @@ aside{top:0;bottom:0;left:0;right:auto;width:270px;flex-direction:column;justify
 .gl{display:grid;grid-template-columns:1.6fr 1fr auto;gap:8px 16px;align-items:center;padding:14px 0;border-top:1px solid var(--bd)}.gl:first-of-type{border-top:0}
 .gq{text-align:right}.ga{display:flex;gap:4px;align-items:center;justify-content:flex-end}
 @media(max-width:800px){.gl{grid-template-columns:1fr auto}.ga{grid-column:1/-1;border-top:1px dashed var(--bd);padding-top:8px}}
+
+.stats{grid-template-columns:repeat(5,minmax(0,1fr));gap:12px}
+.stats .card{padding:16px 14px;border-radius:18px;min-width:0}
+.stats .k{font-size:11px}.stats .v{font-size:clamp(15px,1.7vw,18px);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stats .v.sm{font-size:14px}.stats small{font-size:11px;font-weight:600;color:var(--mu)}
+@media(max-width:1000px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:800px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stats .hero{grid-column:1/-1}}
