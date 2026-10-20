@@ -5,7 +5,7 @@ const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLoc
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const nn=v=>v===''||v==null?null:v, today=()=>new Date().toISOString().slice(0,10);
 const sum=a=>a.reduce((s,x)=>s+Number(x.amount),0), cats=['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#84cc16'];
-let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
+let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[],g:[],gs:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
 const closeM=()=>$('#modal').classList.remove('on');
 
@@ -39,9 +39,9 @@ addEventListener('unhandledrejection',e=>{console.error(e.reason);toast(e.reason
 async function load(){
  const all=async(t,o,asc)=>{let r=[],i=0;for(;;){const {data,error}=await sb.from(t).select('*').order(o,{ascending:asc}).order('id').range(i,i+999);if(error)return{error};r=r.concat(data);if(data.length<1000)break;i+=1000}return{data:r}};
  const q=(t,o)=>all(t,o,t!='transactions'&&t!='debts');
- const [a,c,t,d,b]=await Promise.all([q('accounts','created_at'),q('categories','name'),q('transactions','date'),q('debts','date'),q('budgets','created_at')]);
- const err=[a,c,t,d,b].find(r=>r.error); if(err)toast(err.error.message);
- S={a:a.data||[],c:c.data||[],t:t.data||[],d:d.data||[],b:b.data||[]}; try{render()}catch(e){console.error(e);toast('Gagal menampilkan: '+e.message)}
+ const [a,c,t,d,b,g,gs]=await Promise.all([q('accounts','created_at'),q('categories','name'),q('transactions','date'),q('debts','date'),q('budgets','created_at'),q('gold_lots','buy_date'),q('gold_sales','sell_date')]);
+ const err=[a,c,t,d,b,g,gs].find(r=>r.error); if(err)toast(err.error.message);
+ S={a:a.data||[],c:c.data||[],t:t.data||[],d:d.data||[],b:b.data||[],g:g.data||[],gs:gs.data||[]}; try{render()}catch(e){console.error(e);toast('Gagal menampilkan: '+e.message)}
 }
 const bal=a=>Number(a.initial_balance)+S.t.filter(t=>t.account_id==a.id).reduce((s,t)=>s+(t.type=='income'?1:-1)*t.amount,0);
 const acc=id=>S.a.find(a=>a.id==id), cat=id=>S.c.find(c=>c.id==id);
@@ -66,7 +66,7 @@ const brk=(N,ty)=>{const by={};N.filter(t=>t.type==ty).forEach(t=>{const k=t.cat
 const exportCsv=()=>{const rows=[['Tanggal','Jenis','Rekening','Kategori','Nominal','Catatan'],...fl().map(t=>[t.date,t.type=='income'?'Pemasukan':'Pengeluaran',acc(t.account_id)?.name,cat(t.category_id)?.name||'',t.amount,t.note||''])];
  const csv='\ufeff'+rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\n');
  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`mutasi-${month}.csv`;a.click()};
-async function delTx(id){const t=S.t.find(x=>x.id==id);if(!confirm(t.group_id?'Hapus transfer ini (kedua sisi)?':'Hapus transaksi ini?'))return;
+async function delTx(id){const t=S.t.find(x=>x.id==id);if(t.gold_lot_id)return delGold('gold_lots',t.gold_lot_id);if(t.gold_sale_id)return delGold('gold_sales',t.gold_sale_id);if(!confirm(t.group_id?'Hapus transfer ini (kedua sisi)?':'Hapus transaksi ini?'))return;
  const q=sb.from('transactions').delete();const {error}=await(t.group_id?q.eq('group_id',t.group_id):q.eq('id',id));error?toast(error.message):load()}
 async function del(tb,id){if(!confirm('Hapus data ini? Transaksi terkait ikut terhapus bila ada.'))return;const {error}=await sb.from(tb).delete().eq('id',id);error?toast(error.message):load()}
 
@@ -190,6 +190,38 @@ const fDebtEdit=d=>{const h=d.kind=='hutang',pr=S.t.find(t=>t.debt_id==d.id&&t.k
   else if(pr){const {error}=await sb.from('transactions').delete().eq('id',pr.id);if(error)throw error}
   else if(x.account_id)await ins('transactions',{account_id:x.account_id,debt_id:d.id,kind:'debt',type:h?'income':'expense',amount:a,date:x.date,note:nt});
   if(x.person!=d.person){const {error}=await sb.from('transactions').update({note:(h?'Bayar hutang ke ':'Piutang dari ')+x.person}).eq('debt_id',d.id).eq('kind','payment');if(error)throw error}})};
+const gf=n=>Number(n).toLocaleString('id-ID',{maximumFractionDigits:4})+' g';
+const rem=l=>+(Number(l.grams)-S.gs.filter(x=>x.lot_id==l.id).reduce((s,x)=>s+Number(x.grams),0)).toFixed(4);
+const gprev=(fm,els,fn)=>{const d=document.createElement('div');d.style.cssText='margin:-4px 0 14px;font-size:13px';fm.querySelector('.row').before(d);const u=()=>{d.innerHTML=fn()};els.forEach(e=>{e.addEventListener('input',u);e.addEventListener('change',u)});u()};
+async function delGold(tb,id){if(!confirm(tb=='gold_lots'?'Hapus emas ini beserta penjualannya? Saldo rekening ikut disesuaikan.':'Hapus penjualan ini? Saldo rekening ikut disesuaikan.'))return;const {error}=await sb.from(tb).delete().eq('id',id);error?toast(error.message):load()}
+const fGoldPrice=()=>form('Harga emas hari ini',[{k:'price',l:'Harga jual (buyback) per gram (Rp)',t:'number',v:U?.user_metadata?.gold_price}],
+ async x=>{const {data,error}=await sb.auth.updateUser({data:{gold_price:Number(x.price)}});if(error)throw error;U=data.user});
+const fGoldBuy=()=>{if(needAcc())return;form('Beli Emas',[{k:'code',l:'Kode emas (unik, mis. ANTAM-5G-A12345)'},{k:'brand',l:'Merek / keterangan',r:false},{k:'account_id',l:'Dibayar dari rekening',o:accOpts()},{k:'buy_date',l:'Tanggal beli',t:'date',v:today()},{k:'grams',l:'Berat (gram)',t:'number'},{k:'price_per_gram',l:'Harga beli per gram (Rp)',t:'number'}],
+ async x=>{const g=Number(x.grams),p=Number(x.price_per_gram),code=x.code.trim();if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');if(S.g.some(l=>norm(l.code)==norm(code)))throw new Error('Kode emas sudah dipakai');
+  const lot=await ins('gold_lots',{code,brand:nn(x.brand),buy_date:x.buy_date,grams:g,price_per_gram:p});
+  const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'expense',amount:Math.round(g*p),date:x.buy_date,note:`Beli emas ${code} ${gf(g)}`,gold_lot_id:lot.id});
+  if(error){await sb.from('gold_lots').delete().eq('id',lot.id);throw error}});
+ const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.grams,e.price_per_gram],()=>`Total bayar: <b>${rp((Number(e.grams.value)||0)*(Number(e.price_per_gram.value)||0))}</b>`)};
+const fGoldSell=id=>{const ls=S.g.filter(l=>rem(l)>0);if(!ls.length){toast('Tidak ada emas tersisa untuk dijual.');return}if(needAcc())return;id=typeof id=='string'?id:ls[0].id;
+ form('Jual Emas',[{k:'lot_id',l:'Pilih emas (kode)',o:ls.map(l=>[l.id,`${l.code} · sisa ${gf(rem(l))}`]),v:id},{k:'account_id',l:'Masuk ke rekening',o:accOpts()},{k:'sell_date',l:'Tanggal jual',t:'date',v:today()},{k:'grams',l:'Berat dijual (gram)',t:'number'},{k:'price_per_gram',l:'Harga jual per gram (Rp)',t:'number'}],
+ async x=>{const l=S.g.find(l=>l.id==x.lot_id),g=Number(x.grams),p=Number(x.price_per_gram);if(!(g>0&&p>0))throw new Error('Berat dan harga harus lebih dari 0');if(g>rem(l)+1e-9)throw new Error('Melebihi sisa '+gf(rem(l)));
+  const sale=await ins('gold_sales',{lot_id:l.id,sell_date:x.sell_date,grams:g,price_per_gram:p});
+  const {error}=await sb.from('transactions').insert({account_id:x.account_id,kind:'gold',type:'income',amount:Math.round(g*p),date:x.sell_date,note:`Jual emas ${l.code} ${gf(g)}`,gold_sale_id:sale.id});
+  if(error){await sb.from('gold_sales').delete().eq('id',sale.id);throw error}});
+ const fm=$('#modal form'),e=fm.elements;gprev(fm,[e.lot_id,e.grams,e.price_per_gram],()=>{const l=S.g.find(l=>l.id==e.lot_id.value),g=Number(e.grams.value)||0,p=Number(e.price_per_gram.value)||0,d=g*(p-l.price_per_gram);
+  return `Sisa lot <b>${gf(rem(l))}</b> · harga beli <b>${rp(l.price_per_gram)}</b>/g<br>Total diterima <b>${rp(g*p)}</b> · selisih <b class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</b>`})};
+const goldView=()=>{
+ const lots=[...S.g].sort((a,b)=>b.buy_date.localeCompare(a.buy_date)),price=Number(U?.user_metadata?.gold_price)||0,own=lots.filter(l=>rem(l)>0);
+ const grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),val=grams*price;
+ const real=S.gs.reduce((s,x)=>s+x.grams*(x.price_per_gram-(S.g.find(l=>l.id==x.lot_id)?.price_per_gram||0)),0);
+ const pl=n=>`<b class="${n>=0?'in':'ex'}">${n>=0?'+':'−'}${rp(Math.abs(n))}</b>`;
+ const body=`<div class=grid><div class="card hero"><div class=k>Emas dimiliki</div><div class=v>${gf(grams)}</div></div>
+ <div class=card><div class=k>Modal (sisa emas)</div><div class=v>${rp(cost)}</div></div>
+ <div class=card><div class=k>Nilai sekarang ${price?`@ ${rp(price)}/g`:''}</div><div class=v>${price?rp(val):'—'}</div>${price?`<div>${pl(val-cost)} <span class=mu>belum terealisasi</span></div>`:'<div class=mu>Isi lewat tombol "Harga hari ini"</div>'}</div>
+ <div class=card><div class=k>Untung/rugi terealisasi</div><div class=v style="font-size:20px">${pl(real)}</div></div></div>
+ <div class=card style="margin-bottom:16px"><h3>Daftar emas</h3><table><tr><th>Kode</th><th>Tgl beli</th><th>Sisa / awal</th><th>Harga beli/g</th><th></th></tr>${lots.map(l=>{const r=rem(l);return `<tr style="${r?'':'opacity:.55'}"><td><b>${esc(l.code)}</b><div class=mu style="font-size:12px">${esc(l.brand||'')}</div></td><td>${l.buy_date}</td><td>${gf(r)} / ${gf(l.grams)}</td><td>${rp(l.price_per_gram)}</td><td style="white-space:nowrap">${r?`<button class=ghost style="padding:6px 12px" onclick="fGoldSell('${l.id}')">Jual</button>`:'<span class=pill>Habis</span>'}<button class=x onclick="delGold('gold_lots','${l.id}')">✕</button></td></tr>`}).join('')||'<tr><td colspan=5 class=mu style="text-align:center;padding:28px">Belum ada emas.</td></tr>'}</table></div>
+ <div class=card><h3>Riwayat penjualan</h3><table>${[...S.gs].sort((a,b)=>b.sell_date.localeCompare(a.sell_date)).map(x=>{const l=S.g.find(l=>l.id==x.lot_id);return `<tr><td>${x.sell_date}</td><td><b>${esc(l?.code||'-')}</b><div class=mu style="font-size:12px">${gf(x.grams)} @ ${rp(x.price_per_gram)}</div></td><td>${pl(x.grams*(x.price_per_gram-(l?.price_per_gram||0)))}</td><td style="width:30px"><button class=x onclick="delGold('gold_sales','${x.id}')">✕</button></td></tr>`}).join('')||'<tr><td class=mu style="text-align:center;padding:28px">Belum ada penjualan.</td></tr>'}</table></div>`;
+ return {body,act:`<button class=ghost onclick=fGoldPrice()>Harga hari ini</button><button class=ghost onclick="fGoldSell()">Jual</button><button class=btn onclick=fGoldBuy()>+ Beli emas</button>`}};
 const togSB=()=>{SB=!SB;render()};
 const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user_metadata?.full_name,r:false},{k:'password',l:'Password baru (kosongkan jika tidak diubah)',t:'password',r:false}],
  async d=>{if(d.password&&d.password.length<6)throw new Error('Password minimal 6 karakter');const p={data:{full_name:d.full_name.trim()}};if(d.password)p.password=d.password;
@@ -197,11 +229,11 @@ const fProfile=()=>form('Edit Profil',[{k:'full_name',l:'Nama lengkap',v:U?.user
 const hd=()=>{const nm=U?.user_metadata?.full_name||'',em=U?.email||'',ini=(nm||em)[0]?.toUpperCase()||'?';
  return `<header class=hd><button class=ib onclick="togSB()" aria-label="Menu">☰</button><div class=sp></div><div class=prof><button class=pb onclick="this.nextElementSibling.classList.toggle('on')"><span class=av>${esc(ini)}</span><span class=pn>${esc(nm||em)}</span><span class=mu>▾</span></button>
  <div class=menu><div class=mh><b>${esc(nm||'Pengguna')}</b><div class=mu style="font-size:12px;word-break:break-all">${esc(em)}</div></div><button onclick="fProfile()">✎ Edit profil</button><button class=lo onclick="sb.auth.signOut()">⎋ Keluar</button></div></div></header>`};
-const nav=[['dash','Dashboard'],['tx','Transaksi'],['debt','Hutang Piutang'],['acc','Rekening'],['cat','Kategori']];
-const title={dash:'Dashboard',tx:'Mutasi Transaksi',debt:'Hutang Piutang',acc:'Rekening',cat:'Kategori'};
+const nav=[['dash','Dashboard'],['tx','Transaksi'],['debt','Hutang Piutang'],['gold','Emas'],['acc','Rekening'],['cat','Kategori']];
+const title={dash:'Dashboard',tx:'Mutasi Transaksi',debt:'Hutang Piutang',gold:'Tabungan Emas',acc:'Rekening',cat:'Kategori'};
 const mt=()=>S.t.filter(t=>t.date.startsWith(month));
-function txRows(list){return list.length?list.map(t=>`<tr><td style="width:46px"><span class="ic ${t.type}">${t.type=='income'?'↓':'↑'}</span></td><td>${esc(t.note||cat(t.category_id)?.name||'-')}<div class=mu style="font-size:12px">${esc(cat(t.category_id)?.name||(t.kind=='normal'?'Tanpa kategori':t.kind=='transfer'?'Transfer':'Hutang/Piutang'))} · ${esc(acc(t.account_id)?.name||'')} · ${t.date}</div></td>
- <td class="${t.type=='income'?'in':'ex'}" style="font-weight:700;text-align:right;white-space:nowrap">${t.type=='income'?'+':'−'}${rp(t.amount)}</td><td style="white-space:nowrap">${t.kind=='transfer'?'':`<button class=x onclick="fTx(S.t.find(x=>x.id=='${t.id}'))">Edit</button>`}<button class=x onclick="delTx('${t.id}')">✕</button></td></tr>`).join(''):`<tr><td colspan=4 class=mu style="text-align:center;padding:28px">Belum ada transaksi.</td></tr>`}
+function txRows(list){return list.length?list.map(t=>`<tr><td style="width:46px"><span class="ic ${t.type}">${t.type=='income'?'↓':'↑'}</span></td><td>${esc(t.note||cat(t.category_id)?.name||'-')}<div class=mu style="font-size:12px">${esc(cat(t.category_id)?.name||(t.kind=='normal'?'Tanpa kategori':t.kind=='transfer'?'Transfer':t.kind=='gold'?'Emas':'Hutang/Piutang'))} · ${esc(acc(t.account_id)?.name||'')} · ${t.date}</div></td>
+ <td class="${t.type=='income'?'in':'ex'}" style="font-weight:700;text-align:right;white-space:nowrap">${t.type=='income'?'+':'−'}${rp(t.amount)}</td><td style="white-space:nowrap">${['transfer','gold'].includes(t.kind)?'':`<button class=x onclick="fTx(S.t.find(x=>x.id=='${t.id}'))">Edit</button>`}<button class=x onclick="delTx('${t.id}')">✕</button></td></tr>`).join(''):`<tr><td colspan=4 class=mu style="text-align:center;padding:28px">Belum ada transaksi.</td></tr>`}
 function render(){
  charts.forEach(c=>c.destroy());charts=[];
  const m=mt(), N=m.filter(t=>t.kind=='normal'), inc=sum(N.filter(t=>t.type=='income')), exp=sum(N.filter(t=>t.type=='expense'));
@@ -223,6 +255,7 @@ function render(){
   <div class=mu>${esc(a.bank||'')} ${esc(a.number||'')}</div><div class=v>${rp(bal(a))}</div></div>`).join('')||'<p class=mu>Belum ada rekening.</p>'}</div>`}
  if(view=='cat'){act=`<button class=btn onclick=fCat()>+ Kategori</button>`;
   body=`<div class=grid>${[['income','Pemasukan','in'],['expense','Pengeluaran','ex']].map(([ty,l,cl])=>`<div class=card><h3 class=${cl}>${l}</h3><table>${S.c.filter(c=>c.type==ty).map(c=>`<tr><td>${esc(c.name)}${ty=='expense'?budCell(c):''}</td><td style="white-space:nowrap">${ty=='expense'?`<button class=x onclick="fBudget(S.c.find(x=>x.id=='${c.id}'))">Budget</button>`:''}<button class=x onclick="fCat(S.c.find(x=>x.id=='${c.id}'))">Edit</button><button class=x onclick="del('categories','${c.id}')">✕</button></td></tr>`).join('')}</table></div>`).join('')}</div>`}
+ if(view=='gold'){const g=goldView();body=g.body;act=g.act}
  if(view=='debt'){act=`<button class=btn onclick=fDebt()>+ Hutang / Piutang</button>`;
   body=`<div class=fl style="grid-template-columns:2fr 1fr"><input placeholder="Cari nama / catatan…" value="${esc(D.q)}" onchange="D.q=this.value;render()"><select onchange="D.s=this.value;render()"><option value=aktif ${D.s=='aktif'?'selected':''}>Belum lunas</option><option value=lunas ${D.s=='lunas'?'selected':''}>Lunas</option><option value=all ${D.s=='all'?'selected':''}>Semua</option></select></div><div class=grid>${dl().map(d=>{const p=paid(d),r=d.amount-p;return `<div class=card><div class=row style="justify-content:space-between"><span class="pill ${d.kind=='hutang'?'h':'p'}">${d.kind=='hutang'?'Hutang':'Piutang'}</span><span><button class=x onclick="fDebtEdit(S.d.find(x=>x.id=='${d.id}'))">Edit</button><button class=x onclick="del('debts','${d.id}')">✕</button></span></div>
   <h3 style="margin:10px 0 2px">${esc(d.person)}</h3><div class=mu>${d.date} ${esc(d.note||'')}</div><div class="v ${d.kind=='hutang'?'ex':'in'}">${rp(r)}</div><div class=mu>dari ${rp(d.amount)} · dibayar ${rp(p)}</div>
