@@ -15,3 +15,6 @@ src/index.html  src/style.css  src/app.js   <- source (di GitHub)
 build.mjs  package.json  vercel.json        <- build + security headers
 ```
 Vercel: Settings → Environment Variables → tambahkan `SUPABASE_URL` dan `SUPABASE_ANON_KEY`. Build Command & Output sudah diatur di `vercel.json` (`npm run build` → `dist/`). Jangan pernah memakai `service_role` key di sini.
+
+#Link Claude.AI
+https://claude.ai/chat/90c5aff4-1381-47c2-9f57-83c2440fa5cf
