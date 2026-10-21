@@ -65,3 +65,28 @@ aside{top:0;bottom:0;left:0;right:auto;width:270px;flex-direction:column;justify
 aside .cf{display:flex;align-items:center;gap:10px;background:#fff4e0;color:#b45309;margin-top:8px}.cf svg{width:18px;height:18px;flex:none}
 aside .cf:hover{background:#ffe8c2;color:#92400e}
 @media(prefers-color-scheme:dark){aside .cf{background:#3a2a12;color:#fbbf24}aside .cf:hover{background:#4a3516;color:#fcd34d}}
+
+/* modal ringkas */
+#modal form{max-width:400px;padding:20px 22px;max-height:86vh;overflow:auto;border-radius:20px}
+#modal h3{font-size:16px;margin-bottom:12px}
+#modal label{margin-bottom:10px;font-size:11.5px}
+#modal input,#modal select{padding:9px 12px;font-size:13.5px;border-radius:12px;margin-top:4px}
+#modal .btn,#modal .ghost{padding:9px 16px;font-size:13.5px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}.fg label{grid-column:1/-1}.fg label.h{grid-column:auto}
+#modal form>.row:last-child{position:sticky;bottom:-20px;background:var(--card);padding:10px 0 0;margin-top:2px}
+/* ikon & varian tombol */
+.btn,.ghost,.x{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+button svg{width:16px;height:16px;flex:none}.x svg{width:15px;height:15px}.ib svg{width:20px;height:20px}
+.menu button{display:flex;align-items:center;gap:10px}
+.x-edit:hover{color:var(--pr);background:var(--prs)}
+.ghost.b-vio,.btn.b-vio{background:#f1ebff;color:#7c3aed;box-shadow:none}
+.ghost.b-teal,.btn.b-teal{background:#dff7f4;color:#0f766e;box-shadow:none}
+.ghost.b-xl,.btn.b-xl{background:#e3f6ea;color:#15803d;box-shadow:none}
+.ghost.b-green,.btn.b-green{background:var(--ins);color:var(--in);box-shadow:none}
+.ghost.b-rose,.btn.b-rose{background:var(--exs);color:var(--ex);box-shadow:none}
+.ghost.b-sky,.btn.b-sky{background:#e3f2ff;color:#0369a1;box-shadow:none}
+.ghost.b-neutral,.btn.b-neutral{background:var(--card);color:var(--tx);box-shadow:inset 0 0 0 1px var(--bd)}
+.btn.b-gold{background:#f5b301;color:#3b2a00;box-shadow:0 8px 18px rgba(245,179,1,.32)}
+.ghost[class*=b-]:hover,.btn[class*=b-]:hover{filter:brightness(.96)}
+@media(prefers-color-scheme:dark){
+.ghost.b-vio{background:#2a2147;color:#c4b5fd}.ghost.b-teal{background:#10302f;color:#5eead4}.ghost.b-xl{background:#0f2a1a;color:#4ade80}.ghost.b-sky{background:#0f2a3d;color:#7dd3fc}.ghost.b-neutral{background:var(--card)}}
