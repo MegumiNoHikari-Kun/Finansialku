@@ -73,8 +73,8 @@ async function del(tb,id){if(!confirm('Hapus data ini? Transaksi terkait ikut te
 /* ---------- FORM ---------- */
 function form(title,fields,onOk){
  const m=$('#modal');
- m.innerHTML=`<form class=card onsubmit="return false"><h3>${title}</h3>${fields.map(f=>`<label>${f.l}${f.o?`<select name=${f.k}>${f.o.map(o=>`<option value="${o[0]}" ${o[0]==f.v?'selected':''} ${o[2]?`data-t=${o[2]}`:''}>${esc(o[1])}</option>`).join('')}</select>`
- :`<input name=${f.k} type=${f.t||'text'} value="${esc(f.v??'')}" ${f.r===false?'':'required'} ${f.t=='number'?'step=any min=0':''}>`}</label>`).join('')}
+ m.innerHTML=`<form class=card onsubmit="return false"><h3>${title}</h3><div class=fg>${fields.map(f=>`<label${['date','number'].includes(f.t)?' class=h':''}>${f.l}${f.o?`<select name=${f.k}>${f.o.map(o=>`<option value="${o[0]}" ${o[0]==f.v?'selected':''} ${o[2]?`data-t=${o[2]}`:''}>${esc(o[1])}</option>`).join('')}</select>`
+ :`<input name=${f.k} type=${f.t||'text'} value="${esc(f.v??'')}" ${f.r===false?'':'required'} ${f.t=='number'?'step=any min=0':''}>`}</label>`).join('')}</div>
  <div class=row><button type=button class=ghost onclick="closeM()">Batal</button><button class=btn>Simpan</button></div></form>`;
  m.classList.add('on'); const fm=m.querySelector('form'), ty=fm.elements.type, ct=fm.elements.category_id, sub=fm.querySelector('.btn');
  fm.addEventListener('submit',async e=>{e.preventDefault();if(sub.disabled)return;sub.disabled=true;sub.textContent='Menyimpan…';
@@ -150,7 +150,7 @@ function analyze(rows){
  return {ok,bad,nc:Object.values(nc)}}
 function fImport(){
  const m=$('#modal');let P=null,skip=true;
- m.innerHTML=`<div class=card style="width:100%;max-width:680px;max-height:88vh;overflow:auto"><h3>Import transaksi dari CSV</h3>
+ m.innerHTML=`<div class=card style="width:100%;max-width:540px;max-height:82vh;overflow:auto"><h3>Import transaksi dari CSV</h3>
  <p class=mu style="margin-top:-6px">Kolom: <b>Tanggal, Jenis, Rekening, Kategori, Nominal, Catatan</b>. Dari Excel: Save As → <b>CSV UTF-8</b>.</p>
  <div class=row style="justify-content:flex-start;margin-bottom:12px"><button class=ghost id=tpl>⬇ Unduh template</button></div>
  <input type=file id=imf accept=".csv,text/csv"><div id=imp style="margin-top:14px"></div>
@@ -363,3 +363,24 @@ function drawCharts(N){
  charts.push(new Chart($('#c2'),{type:'bar',data:{labels:ms,datasets:[{label:'Pemasukan',data:tot('income'),backgroundColor:'#10b981',borderRadius:8,borderSkipped:false},{label:'Pengeluaran',data:tot('expense'),backgroundColor:'#f43f5e',borderRadius:8,borderSkipped:false}]},
   options:{scales:{x:{ticks:{color:mu},grid:{display:false}},y:{ticks:{color:mu},grid:{color:bd}}},plugins:{legend:{labels:{color:mu}}}}}));
 }
+
+/* ---------- ikon & varian tombol (otomatis dari teks tombol) ---------- */
+const SV=d=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const ICONS={plus:'<path d="M12 5v14M5 12h14"/>',edit:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',trash:'<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/>',
+ swap:'<path d="M17 3l4 4-4 4"/><path d="M3 7h18"/><path d="M7 21l-4-4 4-4"/><path d="M21 17H3"/>',upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/>',
+ download:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/>',sheet:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h2M14 13h2M8 17h2M14 17h2"/>',
+ coins:'<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/>',trend:'<path d="M22 7l-8.5 8.5-5-5L2 17"/><path d="M16 7h6v6"/>',
+ out:'<path d="M7 17 17 7"/><path d="M7 7h10v10"/>',inn:'<path d="M17 7 7 17"/><path d="M17 17H7V7"/>',tag:'<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+ bank:'<path d="M3 22h18"/><path d="M6 18v-7M10 18v-7M14 18v-7M18 18v-7"/><path d="M12 2 3 7h18Z"/>',wallet:'<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+ check:'<path d="M20 6 9 17l-5-5"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>',left:'<path d="m15 18-6-6 6-6"/>',right:'<path d="m9 18 6-6-6-6"/>',menu:'<path d="M4 6h16M4 12h16M4 18h16"/>',
+ logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',login:'<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/>',
+ user:'<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',mail:'<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>',lock:'<rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>'};
+// teks tombol -> [ikon, kelas varian]
+const BMAP={'Transaksi':['plus',''],'Rekening':['bank',''],'Kategori':['tag',''],'Hutang / Piutang':['wallet',''],'Hutang emas':['inn','b-rose'],'Piutang emas':['out','b-green'],'Transfer':['swap','b-vio'],'Import':['upload','b-teal'],'CSV':['sheet','b-xl'],
+ 'Beli emas':['coins','b-gold'],'Jual':['trend','b-green'],'Pinjamkan':['out','b-sky'],'Pinjam emas':['inn','b-vio'],'Harga hari ini':['tag','b-neutral'],'Terima':['inn','b-green'],'Bayar':['out','b-rose'],'Edit':['edit','x-edit'],'✕':['trash','x-del'],
+ 'Simpan':['check',''],'Batal':['x',''],'Tutup':['x',''],'Unduh template':['download','b-xl'],'Prev':['left',''],'Next':['right',''],'☰':['menu',''],'Edit profil':['user',''],'Keluar':['logout',''],'Masuk':['login',''],'Daftar':['user',''],'Kirim link reset':['mail',''],'Simpan password':['lock','']};
+function decorate(){document.querySelectorAll('button').forEach(b=>{if(b.querySelector('svg'))return;const t=b.textContent.trim(),k=t==='✕'||t==='☰'?t:t.replace(/^[+⇄⬆⬇✎⎋‹]\s*/,'').replace(/\s*›$/,''),m=BMAP[k]||(/^Import \d+/.test(k)?BMAP['Import']:null);if(!m)return;
+ b.textContent='';b.insertAdjacentHTML('afterbegin',SV(ICONS[m[0]]));
+ if(k==='✕'||k==='☰'){b.title=k==='✕'?'Hapus':'Menu';b.setAttribute('aria-label',b.title)}else{const sp=document.createElement('span');sp.textContent=t.startsWith('+')&&m[0]!=='plus'?'+ '+k:k;b.append(sp)}
+ if(m[1])b.classList.add(m[1])})}
+if(typeof MutationObserver!='undefined'){let q=0;new MutationObserver(()=>{if(q)return;q=requestAnimationFrame(()=>{q=0;decorate()})}).observe(document.body,{childList:true,subtree:true})}
