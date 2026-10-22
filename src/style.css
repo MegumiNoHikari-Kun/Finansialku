@@ -90,3 +90,18 @@ button svg{width:16px;height:16px;flex:none}.x svg{width:15px;height:15px}.ib sv
 .ghost[class*=b-]:hover,.btn[class*=b-]:hover{filter:brightness(.96)}
 @media(prefers-color-scheme:dark){
 .ghost.b-vio{background:#2a2147;color:#c4b5fd}.ghost.b-teal{background:#10302f;color:#5eead4}.ghost.b-xl{background:#0f2a1a;color:#4ade80}.ghost.b-sky{background:#0f2a3d;color:#7dd3fc}.ghost.b-neutral{background:var(--card)}}
+
+/* mobile: halaman Transaksi (dan daftar lain) lebih rapi */
+@media(max-width:800px){
+.card{padding:16px;border-radius:18px}
+.top{align-items:stretch;margin-bottom:18px}
+.top>.row{width:100%;flex-wrap:wrap;justify-content:flex-start}
+.top>.row>input{flex:1 1 100%!important;width:100%!important}
+.top>.row>.btn,.top>.row>.ghost{flex:1 1 calc(50% - 8px);padding:10px 8px;font-size:13px}
+.fl:not([style]){grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.fl:not([style]) input:first-child{grid-column:1/-1}
+.fl select,.fl input{font-size:13px;padding:10px;text-overflow:ellipsis}
+td,th{padding:10px 4px}td:nth-child(2){word-break:break-word}
+.ic{width:34px;height:34px;border-radius:10px;font-size:14px}
+table .x{padding:6px 5px}table .x-edit span{display:none}
+}
