@@ -105,3 +105,8 @@ td,th{padding:10px 4px}td:nth-child(2){word-break:break-word}
 .ic{width:34px;height:34px;border-radius:10px;font-size:14px}
 table .x{padding:6px 5px}table .x-edit span{display:none}
 }
+
+.sdiv{margin:14px 14px 4px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--mu)}
+aside .ml{display:flex;align-items:center;gap:10px;background:#dff7f4;color:#0f766e}.ml svg{width:18px;height:18px;flex:none}.ml .ext{margin-left:auto;font-size:13px;opacity:.7}
+aside .ml:hover{background:#c8f0ec;color:#0b5f58}
+@media(prefers-color-scheme:dark){aside .ml{background:#10302f;color:#5eead4}aside .ml:hover{background:#143c3a;color:#99f6e4}}
