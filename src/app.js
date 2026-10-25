@@ -3,7 +3,7 @@ let REC=/type=recovery/.test(location.hash); // dibaca sebelum Supabase menghapu
 const sb=supabase.createClient(__SB_URL__,__SB_KEY__);
 const $=s=>document.querySelector(s), rp=n=>'Rp '+Math.round(Number(n||0)).toLocaleString('id-ID');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const nn=v=>v===''||v==null?null:v, today=()=>new Date().toISOString().slice(0,10);
+const nn=v=>v===''||v==null?null:v, TZ='Asia/Jakarta', today=()=>{const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(x=>[x.type,x.value]));return `${p.year}-${p.month}-${p.day}`};
 const sum=a=>a.reduce((s,x)=>s+Number(x.amount),0), cats=['#6366f1','#10b981','#f59e0b','#ef4444','#06b6d4','#8b5cf6','#ec4899','#84cc16'];
 let SB=innerWidth>800,U=null,S={a:[],c:[],t:[],d:[],b:[],g:[],gs:[],gl:[],gr:[],gb:[],gbr:[]},F={q:'',acc:'',type:'',cat:'',p:0,all:0},D={q:'',s:'aktif'}, view='dash', month=today().slice(0,7), charts=[];
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',3000)};
@@ -358,7 +358,7 @@ function drawCharts(N){
  const css=getComputedStyle(document.body), mu=css.getPropertyValue('--mu'), bd=css.getPropertyValue('--bd');
  const by={};N.filter(t=>t.type=='expense').forEach(t=>{const n=cat(t.category_id)?.name||'Lainnya';by[n]=(by[n]||0)+Number(t.amount)});
  charts.push(new Chart($('#c1'),{type:'doughnut',data:{labels:Object.keys(by),datasets:[{data:Object.values(by),backgroundColor:cats,borderWidth:0}]},options:{cutout:'68%',plugins:{legend:{position:'bottom',labels:{color:mu}}}}}));
- const ms=[...Array(6)].map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-5+i);return d.toISOString().slice(0,7)});
+ const [y0,m0]=today().split('-').map(Number),ms=[...Array(6)].map((_,i)=>{const k=y0*12+m0-1-5+i;return `${Math.floor(k/12)}-${String(k%12+1).padStart(2,'0')}`});
  const tot=ty=>ms.map(k=>sum(S.t.filter(t=>t.kind=='normal'&&t.type==ty&&t.date.startsWith(k))));
  charts.push(new Chart($('#c2'),{type:'bar',data:{labels:ms,datasets:[{label:'Pemasukan',data:tot('income'),backgroundColor:'#10b981',borderRadius:8,borderSkipped:false},{label:'Pengeluaran',data:tot('expense'),backgroundColor:'#f43f5e',borderRadius:8,borderSkipped:false}]},
   options:{scales:{x:{ticks:{color:mu},grid:{display:false}},y:{ticks:{color:mu},grid:{color:bd}}},plugins:{legend:{labels:{color:mu}}}}}));
