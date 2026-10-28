@@ -54,8 +54,16 @@ const budCell=c=>{const b=bud(c.id);if(!b)return '<div class=mu style="font-size
  return `<div class=mu style="font-size:12px">${rp(s)} / ${rp(b.amount)} bulan ini</div><div class=bar style="margin-top:6px"><i style="width:${Math.min(100,p*100)}%;${p>=1?'background:var(--ex)':p>=.8?'background:#f59e0b':''}"></i></div>`};
 const fl=()=>(F.all?S.t:mt()).filter(t=>(!F.cat||(F.cat=='_'?!t.category_id&&t.kind=='normal':t.category_id==F.cat))&&(!F.acc||t.account_id==F.acc)&&(!F.type||t.type==F.type)&&(!F.q||[t.note,cat(t.category_id)?.name,acc(t.account_id)?.name].join(' ').toLowerCase().includes(F.q.toLowerCase())));
 const PS=20;
+/* ringkasan di atas tabel Transaksi: saldo rekening + total pemasukan/pengeluaran sesuai filter (transfer antar rekening tidak dihitung) */
+const txSum=()=>{const l=fl().filter(t=>t.kind!='transfer'),
+ ex=sum(l.filter(t=>t.type=='expense')),inc=sum(l.filter(t=>t.type=='income')),
+ a=F.acc&&acc(F.acc),sal=a?bal(a):S.a.reduce((s,x)=>s+bal(x),0);
+ return `<div class=grid style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:0 0 16px">
+ <div><div class=k>Saldo ${a?esc(a.name):'semua rekening'}</div><div class=v style="font-size:18px">${rp(sal)}</div></div>
+ <div><div class=k>Total pemasukan</div><div class="v in" style="font-size:18px">${rp(inc)}</div></div>
+ <div><div class=k>Total pengeluaran</div><div class="v ex" style="font-size:18px">${rp(ex)}</div></div></div>`};
 const txTable=()=>{const l=fl(),n=l.length,pg=F.p=Math.min(F.p,Math.max(0,Math.ceil(n/PS)-1));
- return `<table>${txRows(l.slice(pg*PS,pg*PS+PS))}</table>`+(n>PS?`<div class=row style="justify-content:space-between;margin-top:14px"><span class=mu>${pg*PS+1}–${Math.min(n,pg*PS+PS)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="F.p--;$('#txl').innerHTML=txTable()">‹ Prev</button> <button class=ghost ${(pg+1)*PS<n?'':'disabled'} onclick="F.p++;$('#txl').innerHTML=txTable()">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} transaksi</div>`)};
+ return txSum()+`<table>${txRows(l.slice(pg*PS,pg*PS+PS))}</table>`+(n>PS?`<div class=row style="justify-content:space-between;margin-top:14px"><span class=mu>${pg*PS+1}–${Math.min(n,pg*PS+PS)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="F.p--;$('#txl').innerHTML=txTable()">‹ Prev</button> <button class=ghost ${(pg+1)*PS<n?'':'disabled'} onclick="F.p++;$('#txl').innerHTML=txTable()">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} transaksi</div>`)};
 const dl=()=>S.d.filter(d=>(!D.q||(d.person+' '+(d.note||'')).toLowerCase().includes(D.q.toLowerCase()))&&(D.s=='all'||(D.s=='aktif')==(d.amount-paid(d)>0)));
 const brk=(N,ty)=>{const by={};N.filter(t=>t.type==ty).forEach(t=>{const k=t.category_id||'_';by[k]=by[k]||{s:0,n:0};by[k].s+=Number(t.amount);by[k].n++});
  const tot=Object.values(by).reduce((a,b)=>a+b.s,0),cl=ty=='income'?'var(--in)':'var(--ex)';
