@@ -58,10 +58,11 @@ const PS=20;
 const txSum=()=>{const l=fl().filter(t=>t.kind!='transfer'),
  ex=sum(l.filter(t=>t.type=='expense')),inc=sum(l.filter(t=>t.type=='income')),
  a=F.acc&&acc(F.acc),sal=a?bal(a):S.a.reduce((s,x)=>s+bal(x),0);
- return `<div class=grid style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin:0 0 16px">
- <div><div class=k>Saldo ${a?esc(a.name):'semua rekening'}</div><div class=v style="font-size:18px">${rp(sal)}</div></div>
- <div><div class=k>Total pemasukan</div><div class="v in" style="font-size:18px">${rp(inc)}</div></div>
- <div><div class=k>Total pengeluaran</div><div class="v ex" style="font-size:18px">${rp(ex)}</div></div></div>`};
+ const c='style="min-width:0;padding:clamp(10px,2.5vw,16px)"',v='style="font-size:clamp(12px,3.4vw,20px);word-break:break-word"';
+ return `<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,2vw,14px);margin:0 0 16px">
+ <div class=card ${c}><div class=k>Saldo ${a?esc(a.name):'semua rekening'}</div><div class=v ${v}>${rp(sal)}</div></div>
+ <div class=card ${c}><div class=k>Total pemasukan</div><div class="v in" ${v}>${rp(inc)}</div></div>
+ <div class=card ${c}><div class=k>Total pengeluaran</div><div class="v ex" ${v}>${rp(ex)}</div></div></div>`};
 const txTable=()=>{const l=fl(),n=l.length,pg=F.p=Math.min(F.p,Math.max(0,Math.ceil(n/PS)-1));
  return txSum()+`<table>${txRows(l.slice(pg*PS,pg*PS+PS))}</table>`+(n>PS?`<div class=row style="justify-content:space-between;margin-top:14px"><span class=mu>${pg*PS+1}–${Math.min(n,pg*PS+PS)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="F.p--;$('#txl').innerHTML=txTable()">‹ Prev</button> <button class=ghost ${(pg+1)*PS<n?'':'disabled'} onclick="F.p++;$('#txl').innerHTML=txTable()">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} transaksi</div>`)};
 const dl=()=>S.d.filter(d=>(!D.q||(d.person+' '+(d.note||'')).toLowerCase().includes(D.q.toLowerCase()))&&(D.s=='all'||(D.s=='aktif')==(d.amount-paid(d)>0)));
