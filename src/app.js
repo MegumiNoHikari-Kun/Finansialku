@@ -393,3 +393,120 @@ function decorate(){document.querySelectorAll('button').forEach(b=>{if(b.querySe
  if(k==='✕'||k==='☰'){b.title=k==='✕'?'Hapus':'Menu';b.setAttribute('aria-label',b.title)}else{const sp=document.createElement('span');sp.textContent=t.startsWith('+')&&m[0]!=='plus'?'+ '+k:k;b.append(sp)}
  if(m[1])b.classList.add(m[1])})}
 if(typeof MutationObserver!='undefined'){let q=0;new MutationObserver(()=>{if(q)return;q=requestAnimationFrame(()=>{q=0;decorate()})}).observe(document.body,{childList:true,subtree:true})}
+
+
+/* ---------- FORM TAGIHAN RUTIN ---------- */
+const fBill=(b={})=>form(b.id?'Edit Tagihan Rutin':'Tambah Tagihan Rutin',
+  [
+    {k:'title',l:'Nama Tagihan',v:b.title},
+    {k:'category',l:'Kategori',o:[['Utilitas','Utilitas (Listrik/Air)'],['Internet','Internet / TV'],['Lingkungan','Lingkungan / Kebersihan'],['Pendidikan','Pendidikan / Les'],['Asuransi','Asuransi / BPJS'],['Teknologi','Sewa / Hosting'],['Lainnya','Lain-lain']],v:b.category||'Utilitas'},
+    {k:'amount',l:'Nominal (Rp)',t:'number',v:b.amount},
+    {k:'cycle',l:'Siklus Pembayaran',o:[['Mingguan','Mingguan'],['Bulanan','Bulanan'],['Tahunan','Tahunan']],v:b.cycle||'Bulanan'},
+    {k:'due_date',l:'Jatuh Tempo (misal: Tgl 10 / Setiap Jumat)',v:b.due_date||'10'},
+    {k:'notes',l:'Informasi Tagihan / Catatan',r:false,v:b.notes}
+  ],
+  d=>b.id?upd('recurring_bills',b.id,{...d,amount:Number(d.amount)}):ins('recurring_bills',{...d,amount:Number(d.amount),status:b.status||'Belum Bayar'})
+);
+
+const toggleBillStatus=async(b)=>{
+  const newStatus=b.status==='Lunas'?'Belum Bayar':'Lunas';
+  await upd('recurring_bills',b.id,{status:newStatus});
+};
+
+/* ---------- VIEW TAGIHAN RUTIN ---------- */
+const flBills=()=>S.bills.filter(b=>
+  (!BILL_F.cycle||BILL_F.cycle==='Semua'||b.cycle===BILL_F.cycle)&&
+  (!BILL_F.status||BILL_F.status==='Semua'||b.status===BILL_F.status)&&
+  (!BILL_F.q||[b.title,b.category,b.notes,b.due_date].join(' ').toLowerCase().includes(BILL_F.q.toLowerCase()))
+);
+
+const billsView=()=>{
+  const list=flBills(), n=list.length, pg=BILL_F.p=Math.min(BILL_F.p,Math.max(0,Math.ceil(n/PS)-1));
+  const slice=list.slice(pg*PS,pg*PS+PS);
+  const tot=sum(list), lunas=sum(list.filter(b=>b.status==='Lunas')), pending=sum(list.filter(b=>b.status==='Belum Bayar'));
+
+  const c='style="min-width:0;padding:clamp(10px,2.5vw,16px)"',v='style="font-size:clamp(12px,3.4vw,20px);word-break:break-word"';
+
+  return `<div className="space-y-6">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+      <div>
+        <h2 style="font-size:20px;font-weight:700">Tagihan Rutin</h2>
+        <p class=mu style="font-size:13px">Lacak dan pantau tagihan mingguan, bulanan, dan tahunan Anda.</p>
+      </div>
+      <button class="btn" onclick="fBill()"><span style="font-size:16px;margin-right:4px">+</span> Tambah Tagihan</button>
+    </div>
+
+    <!-- Stat Summary -->
+    <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(8px,2vw,14px);margin-bottom:16px">
+      <div class=card ${c}><div class=k>Total Tagihan</div><div class=v ${v}>${rp(tot)}</div></div>
+      <div class=card ${c}><div class=k>Sudah Dibayar</div><div class="v in" ${v}>${rp(lunas)}</div></div>
+      <div class=card ${c}><div class=k>Belum Dibayar</div><div class="v ex" ${v}>${rp(pending)}</div></div>
+    </div>
+
+    <!-- Filter & Search -->
+    <div class=card style="margin-bottom:16px;padding:12px 16px">
+      <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between">
+        <input type="text" placeholder="Cari tagihan (Internet, Kebersihan, Les)..." value="${esc(BILL_F.q)}" oninput="BILL_F.q=this.value;BILL_F.p=0;$('#bill-list').innerHTML=billsTable()" style="max-width:300px;margin:0">
+        <div style="display:flex;gap:10px;align-items:center">
+          <span class=mu style="font-size:12px">Status:</span>
+          <select onchange="BILL_F.status=this.value;BILL_F.p=0;$('#bill-list').innerHTML=billsTable()" style="width:auto;margin:0">
+            <option value="Semua" ${BILL_F.status==='Semua'?'selected':''}>Semua</option>
+            <option value="Belum Bayar" ${BILL_F.status==='Belum Bayar'?'selected':''}>Belum Bayar</option>
+            <option value="Lunas" ${BILL_F.status==='Lunas'?'selected':''}>Lunas</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;overflow-x:auto;padding-top:8px;border-top:1px solid var(--bd, #e2e8f0)">
+        <span class=mu style="font-size:12px;align-self:center;margin-right:4px">Siklus:</span>
+        ${['Semua','Mingguan','Bulanan','Tahunan'].map(cy=>`<button class="ghost ${BILL_F.cycle===cy?'active':''}" style="${BILL_F.cycle===cy?'background:var(--pr);color:#fff;':''}font-size:12px;padding:4px 10px;border-radius:6px" onclick="BILL_F.cycle='${cy}';BILL_F.p=0;render()">${cy}</button>`).join('')}
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div id="bill-list">${billsTable()}</div>
+  </div>`;
+};
+
+const billsTable=()=>{
+  const list=flBills(), n=list.length, pg=BILL_F.p=Math.min(BILL_F.p,Math.max(0,Math.ceil(n/PS)-1));
+  const slice=list.slice(pg*PS,pg*PS+PS);
+
+  if(!n) return `<div class=card style="text-align:center;padding:30px"><p class=mu>Tidak ada tagihan ditemukan.</p></div>`;
+
+  return `<table>
+    <thead>
+      <tr>
+        <th>Tagihan & Catatan</th>
+        <th>Kategori</th>
+        <th>Siklus / Tempo</th>
+        <th>Nominal</th>
+        <th>Status</th>
+        <th style="text-align:right">Aksi</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${slice.map(b=>`<tr>
+        <td>
+          <b>${esc(b.title)}</b>
+          ${b.notes?`<div class=mu style="font-size:12px">${esc(b.notes)}</div>`:''}
+        </td>
+        <td><span class=mu style="font-size:12px;background:var(--bg,#f1f5f9);padding:2px 8px;border-radius:4px">${esc(b.category)}</span></td>
+        <td>
+          <div style="font-weight:600;font-size:12px;color:var(--pr)">${esc(b.cycle)}</div>
+          <div class=mu style="font-size:12px">Tgl: ${esc(b.due_date)}</div>
+        </td>
+        <td><b>${rp(b.amount)}</b></td>
+        <td>
+          <button class="ghost" onclick="toggleBillStatus(S.bills.find(x=>x.id=='${b.id}')).then(load)" style="padding:2px 8px;border-radius:12px;font-size:12px;font-weight:600;background:${b.status==='Lunas'?'#d1fae5':'#fef3c7'};color:${b.status==='Lunas'?'#065f46':'#92400e'}">
+            ${b.status==='Lunas'?'✓ Lunas':'⏱ Belum Bayar'}
+          </button>
+        </td>
+        <td style="text-align:right">
+          <button class=ghost onclick="fBill(S.bills.find(x=>x.id=='${b.id}'))" style="padding:4px 8px">✎</button>
+          <button class=ghost onclick="del('recurring_bills','${b.id}')" style="padding:4px 8px;color:var(--ex)">🗑</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  ${n>PS?`<div class=row style="justify-content:space-between;margin-top:14px"><span class=mu>${pg*PS+1}–${Math.min(n,pg*PS+PS)} dari ${n}</span><span><button class=ghost ${pg?'':'disabled'} onclick="BILL_F.p--;$('#bill-list').innerHTML=billsTable()">‹ Prev</button> <button class=ghost ${(pg+1)*PS<n?'':'disabled'} onclick="BILL_F.p++;$('#bill-list').innerHTML=billsTable()">Next ›</button></span></div>`:`<div class=mu style="margin-top:10px;font-size:12px">${n} tagihan</div>`}`;
+};
