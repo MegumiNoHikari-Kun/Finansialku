@@ -117,3 +117,6 @@ main{margin-left:auto;margin-right:auto}
 
 .pill.w{background:#fff4e0;color:#b45309}
 @media(prefers-color-scheme:dark){.pill.w{background:#3a2a12;color:#fbbf24}}
+
+.fl.fl5{grid-template-columns:2fr 1.3fr 1fr 1fr 1fr}
+@media(max-width:800px){.fl.fl5:not([style]){grid-template-columns:repeat(2,minmax(0,1fr))}.fl.fl5 input:first-child{grid-column:1/-1}}
