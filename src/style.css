@@ -120,3 +120,5 @@ main{margin-left:auto;margin-right:auto}
 
 .fl.fl5{grid-template-columns:2fr 1.3fr 1fr 1fr 1fr}
 @media(max-width:800px){.fl.fl5:not([style]){grid-template-columns:repeat(2,minmax(0,1fr))}.fl.fl5 input:first-child{grid-column:1/-1}}
+
+@media(min-width:801px){.fl.fl3{grid-template-columns:2fr 1fr 1fr}}
