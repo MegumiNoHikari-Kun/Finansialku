@@ -316,7 +316,7 @@ const fGoldSaleEdit=sl=>{const l=S.g.find(l=>l.id==sl.lot_id),tx=S.t.find(t=>t.g
 const goldCard=()=>{const own=S.g.filter(l=>rem(l)>0),grams=own.reduce((s,l)=>s+rem(l),0),cost=own.reduce((s,l)=>s+rem(l)*l.price_per_gram,0),price=Number(U?.user_metadata?.gold_price)||0,val=grams*price,d=val-cost;
  return `<div class=card style="cursor:pointer" onclick="view='gold';render()"><div class=k>Tabungan emas</div><div class=v>${gf(grams)}</div>${lentTotal()>1e-9?`<div class=mu style="font-size:11px">+${gf(lentTotal())} dipinjamkan</div>`:''}${owedTotal()>1e-9?`<div class=mu style="font-size:11px">hutang ${gf(owedTotal())}</div>`:''}${!S.g.length?'<div class=mu style="font-size:12px">Belum ada emas</div>':price?`<div style="font-weight:700;font-size:13px">${rp(val)}</div><div class=mu style="font-size:11px"><span class="${d>=0?'in':'ex'}">${d>=0?'+':'−'}${rp(Math.abs(d))}</span> vs modal<br>@ ${rp(price)}/g</div>`:`<div class=mu style="font-size:12px">Modal ${rp(cost)} · isi "Harga hari ini" untuk nilai sekarang</div>`}</div>`};
 /* ---------- tagihan rutin ---------- */
-const FQ={weekly:'Mingguan',monthly:'Bulanan',yearly:'Tahunan'},BF={q:'',f:'',s:'',p:0,pq:'',pp:0},BM=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+const FQ={weekly:'Mingguan',monthly:'Bulanan',yearly:'Tahunan'},BF={q:'',f:'',s:'',p:0,pq:'',pp:0,py:'',pm:''},BM=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
 const bst={late:['Terlambat','h'],today:['Hari ini','w'],soon:['Segera','w'],ok:['Mendatang','p'],off:['Nonaktif','']};
 const bP=d=>d.split('-').map(Number),bU=d=>Date.UTC(...(a=>[a[0],a[1]-1,a[2]])(bP(d))),bDim=(y,m)=>new Date(Date.UTC(y,m,0)).getUTCDate(),bDiff=(a,b)=>Math.round((bU(a)-bU(b))/864e5);
 const bFmt=(y,m,d)=>`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`,fd=d=>{const [y,m,dd]=bP(d);return `${dd} ${BM[m-1]} ${y}`};
@@ -335,8 +335,9 @@ const billList=()=>{const q=norm(BF.q),a=S.bl.map(b=>({b,i:bInfo(b)})).filter(x=
   .sort((a,c)=>(a.b.active==c.b.active?0:a.b.active?-1:1)||a.i.next.localeCompare(c.i.next)),pg=BF.p=Math.min(BF.p,Math.max(0,Math.ceil(a.length/GP)-1));
  return (a.slice(pg*GP,pg*GP+GP).map(x=>billRow(x.b)).join('')||'<p class=mu style="text-align:center;padding:24px 0">Tidak ada tagihan.</p>')+pager(a.length,pg,'bPg1')};
 const payRow=p=>{const b=S.bl.find(z=>z.id==p.bill_id);return `<div class=gl><div><b>${esc(b?.name||'-')}</b><div class=mu style="font-size:12px">Periode ${fd(p.due_date)} · ${p.skipped?'dilewati':`dibayar ${fd(p.paid_date)} · ${esc(acc(p.account_id)?.name||'-')}`}</div></div><div class=gq><b>${p.skipped?'—':rp(p.amount)}</b></div><div class=ga><button class=x onclick="delBillPay('${p.id}')">✕</button></div></div>`};
-const payList=()=>{const q=norm(BF.pq),a=[...S.bp].sort((a,c)=>c.paid_date.localeCompare(a.paid_date)||c.due_date.localeCompare(a.due_date)).filter(p=>!q||norm((S.bl.find(z=>z.id==p.bill_id)?.name||'')+' '+p.due_date+' '+p.paid_date).includes(q)),pg=BF.pp=Math.min(BF.pp,Math.max(0,Math.ceil(a.length/GP)-1));
- return (a.slice(pg*GP,pg*GP+GP).map(payRow).join('')||'<p class=mu style="text-align:center;padding:24px 0">Belum ada riwayat pembayaran.</p>')+pager(a.length,pg,'bPg2')};
+const payYears=()=>[...new Set([...S.bp.map(p=>p.paid_date.slice(0,4)),today().slice(0,4)])].sort().reverse();
+const payList=()=>{const q=norm(BF.pq),a=[...S.bp].sort((a,c)=>c.paid_date.localeCompare(a.paid_date)||c.due_date.localeCompare(a.due_date)).filter(p=>(!BF.py||p.paid_date.startsWith(BF.py))&&(!BF.pm||p.paid_date.slice(5,7)==BF.pm)&&(!q||norm((S.bl.find(z=>z.id==p.bill_id)?.name||'')+' '+p.due_date+' '+p.paid_date).includes(q))),pg=BF.pp=Math.min(BF.pp,Math.max(0,Math.ceil(a.length/GP)-1));
+ return `<div class=mu style="font-size:12.5px;margin-bottom:6px">${a.length} catatan · dibayar <b class=in>${rp(sum(a.filter(p=>!p.skipped)))}</b></div>`+(a.slice(pg*GP,pg*GP+GP).map(payRow).join('')||'<p class=mu style="text-align:center;padding:24px 0">Belum ada riwayat pembayaran.</p>')+pager(a.length,pg,'bPg2')};
 const bPg1=d=>{BF.p+=d;$('#bl1').innerHTML=billList()},bPg2=d=>{BF.pp+=d;$('#bl2').innerHTML=payList()};
 const billView=()=>{const on=S.bl.filter(b=>b.active),mult={weekly:52/12,monthly:1,yearly:1/12},est=on.reduce((s,b)=>s+b.amount*mult[b.frequency],0),inf=on.map(b=>({b,i:bInfo(b)})),
   late=inf.filter(x=>x.i.st=='late'),soon=inf.filter(x=>x.i.st=='today'||x.i.st=='soon'),paidM=sum(S.bp.filter(p=>!p.skipped&&p.paid_date.startsWith(today().slice(0,7))));
@@ -348,7 +349,9 @@ const billView=()=>{const on=S.bl.filter(b=>b.active),mult={weekly:52/12,monthly
  <div class=card style="margin-bottom:16px"><h3>Daftar tagihan</h3><div class=fl><input placeholder="Cari nama, kategori, info…" value="${esc(BF.q)}" oninput="BF.q=this.value;${re}">
  <select onchange="BF.f=this.value;${re}"><option value="">Semua frekuensi</option>${Object.entries(FQ).map(([k,v])=>`<option value=${k} ${sel('f',k)}>${v}</option>`).join('')}</select>
  <select onchange="BF.s=this.value;${re}"><option value="">Semua status</option><option value=late ${sel('s','late')}>Terlambat</option><option value=today ${sel('s','today')}>Hari ini</option><option value=soon ${sel('s','soon')}>Segera (7 hari)</option><option value=ok ${sel('s','ok')}>Mendatang</option><option value=off ${sel('s','off')}>Nonaktif</option></select></div><div id=bl1>${billList()}</div></div>
- <div class=card><h3>Riwayat pembayaran</h3><div class=fl style="grid-template-columns:1fr"><input placeholder="Cari nama tagihan / tanggal (mis. 2026-10)…" value="${esc(BF.pq)}" oninput="BF.pq=this.value;BF.pp=0;$('#bl2').innerHTML=payList()"></div><div id=bl2>${payList()}</div></div>`;
+ <div class=card><h3>Riwayat pembayaran <span class=mu style="font-size:12px;font-weight:500">· berdasarkan tanggal bayar</span></h3><div class="fl fl3"><input placeholder="Cari nama tagihan / tanggal…" value="${esc(BF.pq)}" oninput="BF.pq=this.value;BF.pp=0;$('#bl2').innerHTML=payList()">
+ <select onchange="BF.py=this.value;BF.pp=0;$('#bl2').innerHTML=payList()"><option value="">Semua tahun</option>${payYears().map(y=>`<option value=${y} ${BF.py==y?'selected':''}>${y}</option>`).join('')}</select>
+ <select onchange="BF.pm=this.value;BF.pp=0;$('#bl2').innerHTML=payList()"><option value="">Semua bulan</option>${BM.map((n,i)=>{const v=String(i+1).padStart(2,'0');return `<option value=${v} ${BF.pm==v?'selected':''}>${n}</option>`}).join('')}</select></div><div id=bl2>${payList()}</div></div>`;
  return {body,act:`<button class=btn onclick="fBill()">+ Tagihan</button>`}};
 const fBill=b=>{b=b&&b.id?b:null;const hasPay=b&&S.bp.some(p=>p.bill_id==b.id);
  const f=[{k:'name',l:'Nama tagihan (mis. Internet, Iuran kebersihan, Les anak)',v:b?.name},{k:'category_id',l:'Kategori',o:[['','— Tanpa kategori —'],...S.c.filter(c=>c.type=='expense').map(c=>[c.id,c.name])],v:b?.category_id},{k:'amount',l:'Nominal (Rp)',t:'number',v:b?.amount}];
@@ -396,7 +399,7 @@ function render(){
  charts.forEach(c=>c.destroy());charts=[];
  const m=mt(), N=m.filter(t=>t.kind=='normal'), inc=sum(N.filter(t=>t.type=='income')), exp=sum(N.filter(t=>t.type=='expense'));
  let body='',act='';
- if(view=='dash'){
+ if(view=='dash'){act=`<button class=btn onclick="fTx()">+ Transaksi</button>`;
   const hut=S.d.filter(d=>d.kind=='hutang').reduce((s,d)=>s+d.amount-paid(d),0), pi=S.d.filter(d=>d.kind=='piutang').reduce((s,d)=>s+d.amount-paid(d),0);
   body=billAlert()+alerts().map(a=>`<div class="al ${a.p>=1?'over':''}">${a.p>=1?'⚠️ Budget':'🔔 Budget'} ${esc(a.c.name)} ${a.p>=1?'terlampaui':'hampir habis'} — ${rp(a.s)} dari ${rp(a.b.amount)} (${Math.round(a.p*100)}%)</div>`).join('')+`<div class="grid stats"><div class="card hero"><div class=k>Total saldo</div><div class=v>${rp(S.a.reduce((s,a)=>s+bal(a),0))}</div></div>
   <div class=card><div class=k>Pemasukan bulan ini</div><div class="v in">${rp(inc)}</div></div><div class=card><div class=k>Pengeluaran bulan ini</div><div class="v ex">${rp(exp)}</div><div class=mu style="font-size:11px;margin-top:4px">Hari ini <b class=ex>${rp(sum(S.t.filter(t=>t.kind=='normal'&&t.type=='expense'&&t.date==today())))}</b></div></div>
